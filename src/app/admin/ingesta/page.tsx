@@ -1,0 +1,365 @@
+'use client';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  Sparkles,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  BookOpen,
+  Zap,
+  RotateCcw,
+} from 'lucide-react';
+import { Tema, SeccionTemario, Pregunta } from '@/lib/types';
+import { getTemas, guardarSeccionConPreguntas } from '@/lib/supabase';
+import BottomNav from '@/components/BottomNav';
+
+export default function PaginaAdminIngesta() {
+  const [temas, setTemas] = useState<Tema[]>([]);
+  const [temaId, setTemaId] = useState<number>(1);
+  const [epigrafe, setEpigrafe] = useState('');
+  const [textoBruto, setTextoBruto] = useState('');
+  const [procesando, setProcesando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Resultado devuelto por el tribunal IA
+  const [resultado, setResultado] = useState<{
+    seccion: SeccionTemario;
+    preguntas: Pregunta[];
+  } | null>(null);
+
+  useEffect(() => {
+    async function cargar() {
+      const lista = await getTemas();
+      setTemas(lista);
+      if (lista.length > 0) setTemaId(lista[0].id);
+    }
+    cargar();
+  }, []);
+
+  const temaActual = useMemo(() => {
+    return temas.find((t) => t.id === temaId);
+  }, [temas, temaId]);
+
+  // Manejador para carga de archivo .txt o .md
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setTextoBruto(content);
+        // Si no había epígrafe, sugerir nombre del archivo sin extensión
+        if (!epigrafe) {
+          setEpigrafe(file.name.replace(/\.[^/.]+$/, ''));
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Enviar a la API de Ingesta
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!epigrafe.trim() || !textoBruto.trim()) {
+      setErrorMsg('Por favor completa el epígrafe y pega el texto en bruto.');
+      return;
+    }
+
+    setProcesando(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/ingesta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tema_id: temaId,
+          epigrafe: epigrafe.trim(),
+          texto_bruto: textoBruto.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error en el procesamiento del Tribunal');
+      }
+
+      // Guardar también en el almacenamiento local para sincronización instantánea
+      await guardarSeccionConPreguntas(
+        {
+          tema_id: data.seccion.tema_id,
+          epigrafe: data.seccion.epigrafe,
+          contenido_markdown: data.seccion.contenido_markdown,
+          datos_criticos: data.seccion.datos_criticos || [],
+        },
+        data.preguntas
+      );
+
+      setResultado({
+        seccion: data.seccion,
+        preguntas: data.preguntas,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error conectando con el servicio de IA.';
+      setErrorMsg(msg);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const limpiarFormulario = () => {
+    setEpigrafe('');
+    setTextoBruto('');
+    setResultado(null);
+    setErrorMsg(null);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-[100dvh] pb-24 px-4 pt-3 space-y-4 animate-fadeIn">
+      {/* 1. HEADER */}
+      <header className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/"
+            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all"
+            aria-label="Volver"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-base font-black text-zinc-100 flex items-center gap-1.5 leading-none">
+              <Sparkles className="w-4 h-4 text-red-500" />
+              <span>Motor Tribunal · Ingesta IA</span>
+            </h1>
+            <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+              Destripador automático de temario con Gemini 2.5 Flash
+            </p>
+          </div>
+        </div>
+
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
+          Admin
+        </span>
+      </header>
+
+      {/* 2. FORMULARIO DE INGESTA */}
+      {!resultado ? (
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          {/* Selector de Tema Oficial (1 al 35) */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+              <span>Tema Oficial (1 al 35):</span>
+              <span className="text-[11px] text-red-400 font-medium font-mono">
+                {temaActual?.bloque}
+              </span>
+            </label>
+            <select
+              value={temaId}
+              onChange={(e) => setTemaId(parseInt(e.target.value, 10))}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-200 focus:outline-hidden focus:border-red-600 transition-colors"
+            >
+              {temas.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Tema {t.id}: {t.titulo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Título del Epígrafe */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-300">
+              Título del Epígrafe o Sección:
+            </label>
+            <input
+              type="text"
+              value={epigrafe}
+              onChange={(e) => setEpigrafe(e.target.value)}
+              placeholder="Ej: Art. 14 al 29 - Derechos Fundamentales o Pérdidas de carga en mangueras"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-hidden focus:border-red-600 transition-colors"
+              required
+            />
+          </div>
+
+          {/* Subir archivo .txt / .md */}
+          <div className="flex items-center justify-between text-xs bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/80">
+            <span className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-zinc-400" />
+              ¿Tienes el texto en archivo?
+            </span>
+            <label className="cursor-pointer px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-[11px] font-semibold transition-all">
+              Subir .txt / .md
+              <input
+                type="file"
+                accept=".txt,.md"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Área de texto en bruto */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+              <span>Texto en bruto oficial del temario:</span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {textoBruto.length} caracteres
+              </span>
+            </label>
+            <textarea
+              rows={8}
+              value={textoBruto}
+              onChange={(e) => setTextoBruto(e.target.value)}
+              placeholder="Pega aquí el articulado, datos técnicos, fórmulas, plazos o contenido oficial que quieras que el Tribunal de IA analice..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-hidden focus:border-red-600 transition-colors font-mono leading-relaxed"
+              required
+            />
+          </div>
+
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-950/50 border border-red-800 text-xs text-red-300 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Botón de Ingesta */}
+          <button
+            type="submit"
+            disabled={procesando}
+            className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:scale-[0.98] disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-red-950/40 flex items-center justify-center gap-2"
+          >
+            {procesando ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Destripando texto con Tribunal IA...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>⚡ Destripar con Tribunal IA (Gemini)</span>
+              </>
+            )}
+          </button>
+        </form>
+      ) : (
+        /* 3. VISTA TRAS EL PROCESAMIENTO CON ÉXITO */
+        <div className="space-y-4 animate-slideUp">
+          <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <div>
+                <span className="font-bold block">¡Ingesta completada y guardada!</span>
+                <span className="text-[11px] text-emerald-400/80">
+                  Epígrafe registrado y {resultado.preguntas.length} preguntas añadidas al banco SRS.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Acciones Rápidas */}
+          <div className="flex gap-2">
+            <Link
+              href={`/jugar?modo=tema&temaId=${temaId}`}
+              className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl text-center shadow-md shadow-red-950/30"
+            >
+              Probar este Tema Ahora
+            </Link>
+            <button
+              onClick={limpiarFormulario}
+              className="px-3.5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-zinc-700"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Ingestar Otro</span>
+            </button>
+          </div>
+
+          {/* Datos Críticos Extraídos */}
+          {resultado.seccion.datos_criticos && resultado.seccion.datos_criticos.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" />
+                <span>Datos Críticos Extraídos ({resultado.seccion.datos_criticos.length}):</span>
+              </h3>
+              <div className="space-y-1.5">
+                {resultado.seccion.datos_criticos.map((dc, i) => (
+                  <div
+                    key={i}
+                    className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-zinc-200">{dc.concepto}</span>
+                      <span className="font-mono font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                        {dc.valor_exacto}
+                      </span>
+                    </div>
+                    {dc.trampa_habitual && (
+                      <p className="text-[11px] text-zinc-400">
+                        <span className="text-red-400 font-medium">Trampa de examen: </span>
+                        {dc.trampa_habitual}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Batería de Preguntas Generadas */}
+          <div className="space-y-2.5">
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-red-500" />
+              <span>Preguntas Oficiales Generadas ({resultado.preguntas.length}):</span>
+            </h3>
+
+            <div className="space-y-2">
+              {resultado.preguntas.map((p, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs space-y-2"
+                >
+                  <p className="font-semibold text-zinc-100">{p.enunciado}</p>
+
+                  <div className="space-y-1 pl-1">
+                    {p.opciones.map((opc, i) => (
+                      <div
+                        key={i}
+                        className={`p-1.5 rounded-lg border text-[11px] flex items-start gap-1.5 ${
+                          i === p.respuesta_correcta
+                            ? 'bg-emerald-950/60 border-emerald-800 text-emerald-200 font-medium'
+                            : 'bg-zinc-950 border-zinc-850 text-zinc-400'
+                        }`}
+                      >
+                        <span className="font-bold">{String.fromCharCode(65 + i)})</span>
+                        <span>{opc}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {p.cita_exacta && (
+                    <div className="p-2 rounded-lg bg-yellow-950/30 border border-yellow-800/40 text-[11px] text-yellow-200">
+                      <strong className="text-yellow-400">Cita literal del temario: </strong>
+                      &ldquo;{p.cita_exacta}&rdquo;
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-zinc-400 pt-1 border-t border-zinc-800/60">
+                    <strong className="text-zinc-300">Profesor: </strong>
+                    {p.explicacion_profesor}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  );
+}

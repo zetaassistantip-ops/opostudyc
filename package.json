@@ -6,15 +6,26 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cargar-temario": "node scripts/cargar-temario-archivos.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.58.0",
     "next": "16.4.2",
+    "pdf-parse": "^2.4.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "tailwind-merge": "^3.7.0",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

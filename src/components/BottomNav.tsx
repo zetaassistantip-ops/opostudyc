@@ -23,15 +23,9 @@ export default function BottomNav() {
     },
     {
       href: '/chuleta',
-      label: 'Chuletas',
+      label: 'Fichas Clave',
       icon: Zap,
       active: pathname.startsWith('/chuleta'),
-    },
-    {
-      href: '/admin/ingesta',
-      label: 'Ingesta IA',
-      icon: UploadCloud,
-      active: pathname.startsWith('/admin/ingesta'),
     },
   ];
 

@@ -14,7 +14,6 @@ import {
   Search,
   BookOpen,
   Filter,
-  PlusCircle,
 } from 'lucide-react';
 import { Tema, Pregunta, EstadisticasGlobales } from '@/lib/types';
 import { getTemas, getPreguntas } from '@/lib/supabase';
@@ -416,21 +415,19 @@ export default function DashboardPrincipal() {
         </div>
       </section>
 
-      {/* 6. BANNER DE INGESTA */}
+      {/* 6. BANNER BANCO COMPARTIDO SRS */}
       <section className="p-4 rounded-2xl bg-white border border-slate-200/90 text-xs flex items-center justify-between gap-3 shadow-2xs">
-        <div>
-          <span className="font-bold text-slate-900 block">Actualización de temario</span>
-          <span className="text-[11px] text-slate-500">
-            Añade nuevos textos o epígrafes oficiales para generar baterías de examen.
-          </span>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 block">Banco Compartido Autónomo</span>
+            <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+              Al entrar a cada tema, el Tribunal IA amplía las preguntas automáticamente en la nube sin duplicados. Tu progreso SRS se guarda de forma privada e individual.
+            </span>
+          </div>
         </div>
-        <Link
-          href="/admin/ingesta"
-          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs whitespace-nowrap transition-all flex items-center gap-1.5 border border-slate-200"
-        >
-          <PlusCircle className="w-3.5 h-3.5 text-slate-600" />
-          <span>Ingesta</span>
-        </Link>
       </section>
 
       {/* Barra de navegación inferior fija para mobile */}

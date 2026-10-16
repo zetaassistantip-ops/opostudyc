@@ -68,67 +68,81 @@ export async function getSecciones(): Promise<SeccionTemario[]> {
 /**
  * Obtiene todas las preguntas con su estado SRS Leitner actualizado
  */
-export async function getPreguntas(): Promise<Pregunta[]> {
-  // Primero intentamos estado local si estamos en navegador
-  if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_PREGUNTAS_KEY);
-    if (local) {
-      try {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Error cargando preguntas locales:', e);
-      }
-    }
-  }
-
-  // Si hay Supabase configurado
+/**
+ * Obtiene las preguntas del Banco Global de Supabase, enriquecidas con el progreso individual SRS
+ * @param temaId - Opcional. Si se pasa, filtra exclusivamente las preguntas de ese tema.
+ */
+export async function getPreguntas(temaId?: number): Promise<Pregunta[]> {
+  // 1. Si Supabase está disponible, consultar la tabla global compartida 'preguntas'
   if (supabase) {
     try {
-      const { data: rawPreguntas, error } = await supabase
+      let query = supabase
         .from('preguntas')
         .select('*, seccion:secciones_temario(*), tema:temas(*)');
 
-      if (!error && rawPreguntas && rawPreguntas.length > 0) {
-        // Comprobar si hay un usuario autenticado para sobreescribir con su progreso individual
-        const { data: { user } } = await supabase.auth.getUser();
+      if (temaId) {
+        query = query.eq('tema_id', temaId);
+      }
 
-        if (user) {
-          const { data: userProgress } = await supabase
-            .from('usuario_progreso_srs')
-            .select('*')
-            .eq('user_id', user.id);
+      const { data: rawPreguntas, error } = await query;
 
-          if (userProgress && userProgress.length > 0) {
-            const progressMap = new Map(userProgress.map((up) => [up.pregunta_id, up]));
-            const preguntasPersonalizadas = rawPreguntas.map((p) => {
-              const prog = progressMap.get(p.id);
-              if (prog) {
-                return {
-                  ...p,
-                  caja_leitner: prog.caja_leitner ?? 0,
-                  proxima_revision: prog.proxima_revision || new Date().toISOString(),
-                  fallos_totales: prog.fallos_totales ?? 0,
-                  aciertos_consecutivos: prog.aciertos_consecutivos ?? 0,
-                  ultima_vez_vista: prog.ultima_vez_vista,
-                };
-              }
-              return p;
-            });
-            return preguntasPersonalizadas as Pregunta[];
-          }
+      if (!error && rawPreguntas) {
+        // Si se pide un tema y no hay preguntas, devolver vacío (nunca mezclar con Tema 1)
+        if (rawPreguntas.length === 0 && temaId) {
+          return [];
         }
 
-        return rawPreguntas as Pregunta[];
+        if (rawPreguntas.length > 0) {
+          // Comprobar si hay un usuario autenticado para sobreescribir con su progreso individual (SRS)
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (user) {
+            const { data: userProgress } = await supabase
+              .from('usuario_progreso_srs')
+              .select('*')
+              .eq('user_id', user.id);
+
+            if (userProgress && userProgress.length > 0) {
+              const progressMap = new Map(userProgress.map((up) => [up.pregunta_id, up]));
+              const preguntasPersonalizadas = rawPreguntas.map((p) => {
+                const prog = progressMap.get(p.id);
+                if (prog) {
+                  return {
+                    ...p,
+                    caja_leitner: prog.caja_leitner ?? 0,
+                    proxima_revision: prog.proxima_revision || new Date().toISOString(),
+                    fallos_totales: prog.fallos_totales ?? 0,
+                    aciertos_consecutivos: prog.aciertos_consecutivos ?? 0,
+                    ultima_vez_vista: prog.ultima_vez_vista,
+                  };
+                }
+                return {
+                  ...p,
+                  caja_leitner: 0,
+                  proxima_revision: new Date().toISOString(),
+                  fallos_totales: 0,
+                  aciertos_consecutivos: 0,
+                  ultima_vez_vista: null,
+                };
+              });
+              return preguntasPersonalizadas as Pregunta[];
+            }
+          }
+
+          return rawPreguntas as Pregunta[];
+        }
       }
     } catch (e) {
       console.warn('Fallo consultando Supabase preguntas:', e);
     }
   }
 
-  // Fallback con mock data inicial enriquecida con sus secciones
+  // 2. Si se solicitó un tema específico y no es el Tema 1, NUNCA devolver mocks de otro tema
+  if (temaId && temaId !== 1) {
+    return [];
+  }
+
+  // 3. Fallback inicial pedagógico exclusivo para Tema 1 o modo general sin Supabase
   const secciones = MOCK_SECCIONES;
   return MOCK_PREGUNTAS.map((preg) => {
     const seccion = secciones.find((s) => s.id === preg.seccion_id);
@@ -139,6 +153,42 @@ export async function getPreguntas(): Promise<Pregunta[]> {
       tema,
     };
   });
+}
+
+/**
+ * Invoca el motor de generación acumulativa (/api/motor-tema) con sistema anti-duplicados
+ */
+export async function solicitarGeneracionMotorTema(
+  temaId: number,
+  forzarGeneracion: boolean = false
+): Promise<{ ok: boolean; preguntas: Pregunta[]; nuevasGeneradas: number; error?: string }> {
+  try {
+    const res = await fetch('/api/motor-tema', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ temaId, forzarGeneracion }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al invocar motor-tema');
+    }
+
+    return {
+      ok: true,
+      preguntas: data.preguntas || [],
+      nuevasGeneradas: data.nuevasGeneradas || 0,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error de conexión con el motor de temas.';
+    console.error('Error en solicitarGeneracionMotorTema:', msg);
+    return {
+      ok: false,
+      preguntas: [],
+      nuevasGeneradas: 0,
+      error: msg,
+    };
+  }
 }
 
 /**

@@ -25,19 +25,24 @@ import {
   calcularSRS,
   obtenerEtiquetaCaja,
 } from '@/lib/srs';
-import { getPreguntas, getSecciones, getTemas, actualizarPreguntaSRS } from '@/lib/supabase';
+import { getPreguntas, getSecciones, getTemas, actualizarPreguntaSRS, solicitarGeneracionMotorTema } from '@/lib/supabase';
 import TemarioDrawer from '@/components/TemarioDrawer';
 
 function TestGameContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const modo = searchParams.get('modo') || 'repaso';
-  const temaIdParam = searchParams.get('temaId');
-  const temaId = temaIdParam ? parseInt(temaIdParam, 10) : undefined;
+  const temaIdRaw = searchParams.get('temaId') || searchParams.get('tema');
+  const temaId = temaIdRaw ? parseInt(temaIdRaw, 10) : undefined;
+  const modo = searchParams.get('modo') || (temaId ? 'tema' : 'repaso');
 
   // Estados de carga y partida
   const [cargando, setCargando] = useState(true);
+  const [generandoMotor, setGenerandoMotor] = useState(false);
+  const [mensajeMotor, setMensajeMotor] = useState<string>('');
+  const [errorMotor, setErrorMotor] = useState<string | null>(null);
+  const [generandoNuevas, setGenerandoNuevas] = useState(false);
+
   const [preguntasRonda, setPreguntasRonda] = useState<PreguntaJuego[]>([]);
   const [secciones, setSecciones] = useState<SeccionTemario[]>([]);
   const [temas, setTemas] = useState<Tema[]>([]);
@@ -62,9 +67,9 @@ function TestGameContent() {
   useEffect(() => {
     async function cargarPartida() {
       setCargando(true);
+      setErrorMotor(null);
       try {
-        const [todasPreguntas, todasSecciones, todosTemas] = await Promise.all([
-          getPreguntas(),
+        const [todasSecciones, todosTemas] = await Promise.all([
           getSecciones(),
           getTemas(),
         ]);
@@ -72,25 +77,49 @@ function TestGameContent() {
         setSecciones(todasSecciones);
         setTemas(todosTemas);
 
-        let seleccionadas: PreguntaJuego[] = [];
-        if (modo === 'fallos') {
-          seleccionadas = seleccionarCazadorFallos(todasPreguntas, 15);
-        } else if (modo === 'tema' && temaId) {
-          const filtradas = todasPreguntas.filter((p) => p.tema_id === temaId);
-          seleccionadas = filtradas.slice(0, 15).map(barajarOpciones);
+        if (modo === 'tema' && temaId) {
+          // 1. Consultar preguntas específicas del tema en el banco de Supabase
+          let preguntasTema = await getPreguntas(temaId);
+
+          // Si hay 0 preguntas para este tema, activar el motor automático con el Tribunal IA
+          if (preguntasTema.length === 0) {
+            setGenerandoMotor(true);
+            setMensajeMotor(
+              `🔥 El Tribunal IA está preparando y guardando en base de datos el primer bloque de preguntas oficiales del Tema ${temaId}...`
+            );
+            const resMotor = await solicitarGeneracionMotorTema(temaId, false);
+            setGenerandoMotor(false);
+
+            if (resMotor.ok && resMotor.preguntas.length > 0) {
+              preguntasTema = resMotor.preguntas;
+            } else {
+              setErrorMotor(resMotor.error || 'No se pudieron generar preguntas para este tema.');
+            }
+          }
+
+          if (preguntasTema.length > 0) {
+            const seleccionadas = seleccionarMixTribunal(preguntasTema, 15, temaId);
+            setPreguntasRonda(
+              seleccionadas.length > 0
+                ? seleccionadas
+                : preguntasTema.slice(0, 15).map(barajarOpciones)
+            );
+          } else {
+            setPreguntasRonda([]);
+          }
+        } else if (modo === 'fallos') {
+          const todas = await getPreguntas();
+          const seleccionadas = seleccionarCazadorFallos(todas, 15);
+          setPreguntasRonda(seleccionadas);
         } else {
-          // Mix Tribunal inteligente por defecto
-          seleccionadas = seleccionarMixTribunal(todasPreguntas, 15, temaId);
+          // Mix Tribunal inteligente por defecto (repaso general)
+          const todas = await getPreguntas();
+          const seleccionadas = seleccionarMixTribunal(todas, 15);
+          setPreguntasRonda(seleccionadas);
         }
-
-        // Si no hubiera preguntas para ese filtro específico, fallback con barajado de todas
-        if (seleccionadas.length === 0) {
-          seleccionadas = todasPreguntas.slice(0, 15).map(barajarOpciones);
-        }
-
-        setPreguntasRonda(seleccionadas);
       } catch (err) {
         console.error('Error preparando ronda:', err);
+        setErrorMotor('Error preparando la sesión de preguntas.');
       } finally {
         setCargando(false);
       }
@@ -200,12 +229,78 @@ function TestGameContent() {
     }
   };
 
-  // Reiniciar otra ronda
-  const reiniciarRonda = () => {
-    router.refresh();
-    window.location.reload();
+  // Solicitar +15 preguntas nuevas para este tema al motor con deduplicación
+  const handleExprimirNuevasPreguntas = async () => {
+    if (!temaId) return;
+    setGenerandoNuevas(true);
+    try {
+      const res = await solicitarGeneracionMotorTema(temaId, true);
+      if (res.ok && res.preguntas.length > 0) {
+        const filtradas = res.preguntas.filter((p) => p.tema_id === temaId);
+        const seleccionadas = seleccionarMixTribunal(filtradas, 15, temaId);
+        setPreguntasRonda(
+          seleccionadas.length > 0
+            ? seleccionadas
+            : filtradas.slice(0, 15).map(barajarOpciones)
+        );
+        setIndiceActual(0);
+        setOpcionSeleccionadaOriginal(null);
+        setHaRespondido(false);
+        setEvaluacionSRS(null);
+        setRondaTerminada(false);
+        setEstadisticasRonda({ aciertosSeguros: 0, aciertosDuda: 0, fallos: 0 });
+      } else {
+        alert(res.error || 'No se pudieron generar más preguntas en este momento.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión con el motor de temas.');
+    } finally {
+      setGenerandoNuevas(false);
+    }
   };
 
+  // Reiniciar otra ronda con las preguntas actuales del tema
+  const reiniciarRonda = () => {
+    if (preguntasRonda.length > 0) {
+      setIndiceActual(0);
+      setOpcionSeleccionadaOriginal(null);
+      setHaRespondido(false);
+      setEvaluacionSRS(null);
+      setRondaTerminada(false);
+      setEstadisticasRonda({ aciertosSeguros: 0, aciertosDuda: 0, fallos: 0 });
+      setPreguntasRonda((prev) => prev.map(barajarOpciones));
+    } else {
+      router.refresh();
+      window.location.reload();
+    }
+  };
+
+  // ESTADO 1: CARGA TÁCTICA DEL MOTOR IA (GENERANDO PRIMER BLOQUE)
+  if (generandoMotor) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-3 border-slate-200 border-t-red-600 rounded-full animate-spin" />
+          <Flame className="w-7 h-7 text-red-600 absolute inset-0 m-auto animate-pulse" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-base font-bold text-slate-900 leading-snug">
+            {mensajeMotor || `Preparando preguntas del Tema ${temaId}...`}
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+            El Tribunal IA está destripando el temario oficial, formulando distractores de nivel oposición y guardando la batería en la base de datos compartida.
+          </p>
+        </div>
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-center gap-2 text-left shadow-2xs">
+          <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <span>Generación única: una vez guardadas, este tema cargará al instante para siempre.</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ESTADO 2: CARGA NORMAL
   if (cargando) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -240,7 +335,7 @@ function TestGameContent() {
               {porcentajeAcierto >= 80 ? '¡Ronda Completada con Éxito!' : porcentajeAcierto >= 50 ? 'Buen Entrenamiento' : 'Toca Reforzar Conceptos'}
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              El algoritmo Leitner ha programado cada pregunta según tu nivel de acierto.
+              El algoritmo Leitner ha programado cada pregunta según tu nivel de acierto individual.
             </p>
           </div>
 
@@ -294,12 +389,33 @@ function TestGameContent() {
 
         {/* Botones de acción */}
         <div className="space-y-2.5 pt-6">
+          {/* Botón acumulativo anti-duplicados */}
+          {temaId && (
+            <button
+              onClick={handleExprimirNuevasPreguntas}
+              disabled={generandoNuevas}
+              className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {generandoNuevas ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Ampliando banco con Tribunal IA...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>⚡ Exprimir +15 preguntas nuevas de este tema</span>
+                </>
+              )}
+            </button>
+          )}
+
           <button
             onClick={reiniciarRonda}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Entrenar Otra Ronda</span>
+            <span>Repasar Esta Ronda</span>
           </button>
 
           <Link
@@ -313,12 +429,48 @@ function TestGameContent() {
     );
   }
 
+  // ESTADO 3: TEMA SIN PREGUNTAS (CON BOTÓN DE GENERACIÓN DIRECTA)
   if (!preguntaActual) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-slate-500 text-sm">No se encontraron preguntas para esta ronda.</p>
-        <Link href="/" className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">
-          Volver al Inicio
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+          <BookOpen className="w-6 h-6" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            {temaId ? `Tema ${temaId}: Banco de preguntas pendiente` : 'No hay preguntas disponibles'}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+            {errorMotor ||
+              'Este tema aún no tiene preguntas generadas en la base de datos compartida.'}
+          </p>
+        </div>
+
+        {temaId ? (
+          <button
+            onClick={handleExprimirNuevasPreguntas}
+            disabled={generandoNuevas}
+            className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {generandoNuevas ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Generando con Tribunal IA...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>⚡ Generar primer bloque de 15 preguntas oficiales</span>
+              </>
+            )}
+          </button>
+        ) : null}
+
+        <Link
+          href="/"
+          className="text-xs text-slate-500 hover:text-slate-800 font-semibold pt-1"
+        >
+          Volver al Temario Principal
         </Link>
       </div>
     );

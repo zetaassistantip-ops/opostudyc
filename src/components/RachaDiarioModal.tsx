@@ -12,6 +12,7 @@ import {
   HelpCircle,
   BookOpen,
   Award,
+  Target,
 } from 'lucide-react';
 import { SesionEstudio } from '@/lib/types';
 
@@ -241,7 +242,11 @@ export default function RachaDiarioModal({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        {ses.tipo_sesion === 'tema' ? (
+                        {ses.tipo_sesion === 'simulacro_general' ? (
+                          <div className="w-7 h-7 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-700 flex-shrink-0">
+                            <Target className="w-3.5 h-3.5" />
+                          </div>
+                        ) : ses.tipo_sesion === 'tema' ? (
                           <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 flex-shrink-0">
                             <BookOpen className="w-3.5 h-3.5" />
                           </div>

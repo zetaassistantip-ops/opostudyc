@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Tema, SeccionTemario, Pregunta, ResultadoSRS, SesionEstudio } from './types';
+import { Tema, SeccionTemario, Pregunta, ResultadoSRS, SesionEstudio, FichaTecnica } from './types';
 import { TEMAS_CAM, MOCK_SECCIONES, MOCK_PREGUNTAS } from './mock-data';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -468,3 +468,108 @@ export function calcularRachaDias(sesiones: SesionEstudio[]): number {
 
   return racha;
 }
+
+/**
+ * Obtiene las fichas técnicas desde Supabase (tabla fichas_tecnicas o fallback secciones_temario)
+ */
+export async function getFichasTecnicas(temaIds?: number[]): Promise<FichaTecnica[]> {
+  const temasMap = new Map<number, Tema>();
+  const todosTemas = await getTemas();
+  todosTemas.forEach((t) => temasMap.set(t.id, t));
+
+  if (supabase) {
+    try {
+      let query = supabase.from('fichas_tecnicas').select('*');
+      if (temaIds && temaIds.length > 0) {
+        query = query.in('tema_id', temaIds);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return (data as FichaTecnica[]).map((f) => ({
+          ...f,
+          tema: temasMap.get(f.tema_id),
+        }));
+      }
+    } catch (e) {
+      console.warn('Fallo consultando fichas_tecnicas, usando fallback:', e);
+    }
+  }
+
+  // Fallback: extrae de secciones_temario.datos_criticos
+  try {
+    const secciones = await getSecciones();
+    const items: FichaTecnica[] = [];
+    secciones.forEach((sec) => {
+      if (temaIds && temaIds.length > 0 && !temaIds.includes(sec.tema_id)) return;
+      if (sec.datos_criticos && Array.isArray(sec.datos_criticos)) {
+        sec.datos_criticos.forEach((dc, idx) => {
+          items.push({
+            id: `sec_${sec.id}_${idx}`,
+            tema_id: sec.tema_id,
+            concepto: dc.concepto,
+            valor_exacto: dc.valor_exacto,
+            trampa_habitual: dc.trampa_habitual,
+            tema: temasMap.get(sec.tema_id),
+          });
+        });
+      }
+    });
+    return items;
+  } catch (err) {
+    console.error('Error cargando fichas técnicas:', err);
+    return [];
+  }
+}
+
+/**
+ * Elimina una ficha técnica de Supabase (o local)
+ */
+export async function eliminarFichaTecnica(id: string): Promise<boolean> {
+  if (supabase && !id.startsWith('sec_')) {
+    try {
+      const { error } = await supabase.from('fichas_tecnicas').delete().eq('id', id);
+      if (!error) return true;
+      console.error('Error eliminando ficha de Supabase:', error);
+    } catch (e) {
+      console.error('Excepción eliminando ficha:', e);
+    }
+  }
+  return true;
+}
+
+/**
+ * Invoca el motor de generación de fichas técnicas oficiales (/api/motor-fichas)
+ */
+export async function solicitarGeneracionFichas(
+  temaId: number
+): Promise<{ ok: boolean; fichas: FichaTecnica[]; nuevasGeneradas: number; error?: string }> {
+  try {
+    const res = await fetch('/api/motor-fichas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ temaId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al generar fichas técnicas con IA');
+    }
+
+    return {
+      ok: true,
+      fichas: data.fichas || [],
+      nuevasGeneradas: data.nuevasGeneradas || 0,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al conectar con motor-fichas.';
+    console.error('Error en solicitarGeneracionFichas:', msg);
+    return {
+      ok: false,
+      fichas: [],
+      nuevasGeneradas: 0,
+      error: msg,
+    };
+  }
+}
+

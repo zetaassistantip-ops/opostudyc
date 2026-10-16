@@ -14,6 +14,7 @@ import {
   Search,
   BookOpen,
   Filter,
+  Target,
 } from 'lucide-react';
 import { Tema, Pregunta, EstadisticasGlobales, SesionEstudio } from '@/lib/types';
 import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from '@/lib/supabase';
@@ -21,6 +22,7 @@ import BottomNav from '@/components/BottomNav';
 import UserAuthButton from '@/components/UserAuthButton';
 import RachaDiarioModal from '@/components/RachaDiarioModal';
 import BotonInstalarApp from '@/components/BotonInstalarApp';
+import ModalSimulacroConfig from '@/components/ModalSimulacroConfig';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPrincipal() {
@@ -29,8 +31,8 @@ export default function DashboardPrincipal() {
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
   const [modalRachaAbierto, setModalRachaAbierto] = useState(false);
+  const [modalSimulacroAbierto, setModalSimulacroAbierto] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const [bloqueFiltro, setBloqueFiltro] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
 
   const [stats, setStats] = useState<EstadisticasGlobales>({
@@ -111,13 +113,6 @@ export default function DashboardPrincipal() {
     cargarDatos();
   }, [user]);
 
-  // Lista única de bloques temáticos
-  const bloques = useMemo(() => {
-    const setB = new Set<string>();
-    temas.forEach((t) => setB.add(t.bloque));
-    return Array.from(setB);
-  }, [temas]);
-
   // Progreso por tema (calculado según preguntas en cajas 3-5 vs 0-1)
   const estadisticasPorTema = useMemo(() => {
     const map = new Map<number, { total: number; dominadas: number; porcentaje: number }>();
@@ -133,17 +128,16 @@ export default function DashboardPrincipal() {
     return map;
   }, [temas, preguntas]);
 
-  // Filtrado de temas por bloque y texto
+  // Filtrado de temas por buscador de texto o número
   const temasFiltrados = useMemo(() => {
     return temas.filter((t) => {
-      const coincideBloque = bloqueFiltro === 'todos' || t.bloque === bloqueFiltro;
-      const coincideBusqueda =
+      return (
         busqueda === '' ||
         t.titulo.toLowerCase().includes(busqueda.toLowerCase()) ||
-        t.id.toString() === busqueda.trim();
-      return coincideBloque && coincideBusqueda;
+        t.id.toString() === busqueda.trim()
+      );
     });
-  }, [temas, bloqueFiltro, busqueda]);
+  }, [temas, busqueda]);
 
   return (
     <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-[100dvh] pb-24 px-4 pt-3 space-y-4 animate-fadeIn">
@@ -275,6 +269,32 @@ export default function DashboardPrincipal() {
         <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 group-hover:text-white transition-all flex-shrink-0" />
       </Link>
 
+      {/* 3.1 BOTÓN DESTACADO: TEST GENERAL / SIMULACRO */}
+      <button
+        type="button"
+        onClick={() => setModalSimulacroAbierto(true)}
+        className="w-full p-4 rounded-2xl bg-gradient-to-r from-violet-950 via-slate-900 to-slate-900 hover:from-violet-900 hover:to-slate-800 active:scale-[0.99] transition-all shadow-sm flex items-center justify-between text-white group border border-violet-900/40 cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-violet-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+            <Target className="w-6 h-6 text-white" />
+          </div>
+          <div className="text-left">
+            <div className="text-[11px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Simulacro de Examen</span>
+              <span className="px-1.5 py-0.2 rounded bg-violet-800/60 text-violet-200 text-[10px]">Multitema</span>
+            </div>
+            <div className="text-base font-bold tracking-tight text-white">
+              🎯 Test General / Simulacro
+            </div>
+            <div className="text-xs text-slate-300 font-normal">
+              Batería aleatoria global o combinando los temas que tú elijas
+            </div>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 group-hover:text-white transition-all flex-shrink-0" />
+      </button>
+
       {/* 4. MODOS COMPLEMENTARIOS */}
       <div className="grid grid-cols-2 gap-2.5">
         {/* Cazador de Fallos */}
@@ -338,45 +358,16 @@ export default function DashboardPrincipal() {
           </span>
         </div>
 
-        {/* Buscador táctico rápido y selector de bloque */}
-        <div className="space-y-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar tema (ej. Hidráulica, PLATERCAM, CTE, Gas)..."
-              className="w-full bg-white border border-slate-200/90 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-400 focus:ring-1 focus:ring-slate-300 shadow-2xs transition-all"
-            />
-          </div>
-
-          {/* Filtros horizontales por bloque */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
-            <button
-              onClick={() => setBloqueFiltro('todos')}
-              className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all border ${
-                bloqueFiltro === 'todos'
-                  ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-2xs'
-                  : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50'
-              }`}
-            >
-              Todos (35)
-            </button>
-            {bloques.map((b) => (
-              <button
-                key={b}
-                onClick={() => setBloqueFiltro(b)}
-                className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all border ${
-                  bloqueFiltro === b
-                    ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-2xs'
-                    : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50'
-                }`}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
+        {/* Buscador táctico rápido (limpio sin píldoras de bloques) */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar tema (ej. Hidráulica, PLATERCAM, CTE, Gas)..."
+            className="w-full bg-white border border-slate-200/90 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-400 focus:ring-1 focus:ring-slate-300 shadow-2xs transition-all"
+          />
         </div>
 
         {/* Lista de temas */}
@@ -454,6 +445,13 @@ export default function DashboardPrincipal() {
         onCerrar={() => setModalRachaAbierto(false)}
         rachaDias={stats.rachaDias}
         sesiones={sesiones}
+      />
+
+      {/* Modal de Configuración de Simulacro / Test General */}
+      <ModalSimulacroConfig
+        abierto={modalSimulacroAbierto}
+        onCerrar={() => setModalSimulacroAbierto(false)}
+        temas={temas}
       />
     </div>
   );

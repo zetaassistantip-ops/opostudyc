@@ -63,7 +63,7 @@ export interface ResultadoSRS {
   intervaloTexto: string;
 }
 
-export type ModoJuego = 'repaso' | 'fallos' | 'tema' | 'nuevas';
+export type ModoJuego = 'repaso' | 'fallos' | 'tema' | 'nuevas' | 'general';
 
 export interface EstadisticasGlobales {
   totalPreguntas: number;
@@ -77,12 +77,14 @@ export interface EstadisticasGlobales {
   falladasHistoricas: number;
 }
 
+export type TipoSesion = 'tema' | 'repaso_srs' | 'fallos' | 'simulacro_general';
+
 export interface SesionEstudio {
   id?: string;
   user_id?: string;
   fecha: string; // YYYY-MM-DD
   created_at?: string;
-  tipo_sesion: 'tema' | 'repaso_srs' | 'fallos';
+  tipo_sesion: TipoSesion;
   tema_id?: number | null;
   titulo_sesion: string;
   preguntas_respondidas: number;
@@ -90,3 +92,15 @@ export interface SesionEstudio {
   dudas?: number;
   fallos: number;
 }
+
+export interface FichaTecnica {
+  id: string;
+  tema_id: number;
+  concepto: string;
+  valor_exacto: string;
+  trampa_habitual: string;
+  categoria_dato?: string;
+  created_at?: string;
+  tema?: Tema;
+}
+

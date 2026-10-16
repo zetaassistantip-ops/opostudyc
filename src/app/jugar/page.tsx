@@ -16,8 +16,9 @@ import {
   Sparkles,
   AlertTriangle,
   Award,
+  Target,
 } from 'lucide-react';
-import { PreguntaJuego, TipoEvaluacionSRS, SeccionTemario, Tema } from '@/lib/types';
+import { PreguntaJuego, TipoEvaluacionSRS, SeccionTemario, Tema, TipoSesion, Pregunta } from '@/lib/types';
 import {
   seleccionarMixTribunal,
   seleccionarCazadorFallos,
@@ -35,6 +36,9 @@ function TestGameContent() {
   const temaIdRaw = searchParams.get('temaId') || searchParams.get('tema');
   const temaId = temaIdRaw ? parseInt(temaIdRaw, 10) : undefined;
   const modo = searchParams.get('modo') || (temaId ? 'tema' : 'repaso');
+  const temasParam = searchParams.get('temas'); // "all" o "1,3,7"
+  const limiteParam = searchParams.get('limite');
+  const limitePreguntas = limiteParam ? parseInt(limiteParam, 10) : 15;
 
   // Estados de carga y partida
   const [cargando, setCargando] = useState(true);
@@ -77,7 +81,32 @@ function TestGameContent() {
         setSecciones(todasSecciones);
         setTemas(todosTemas);
 
-        if (modo === 'tema' && temaId) {
+        if (modo === 'general') {
+          // Modo Simulacro / Test General Multitema
+          const todas = await getPreguntas();
+          let pool: Pregunta[] = todas;
+
+          if (temasParam && temasParam !== 'all') {
+            const idsPermitidos = temasParam
+              .split(',')
+              .map((id) => parseInt(id.trim(), 10))
+              .filter((n) => !isNaN(n));
+
+            if (idsPermitidos.length > 0) {
+              pool = todas.filter((p) => idsPermitidos.includes(p.tema_id));
+            }
+          }
+
+          if (pool.length === 0) {
+            setPreguntasRonda([]);
+          } else {
+            // Barajar aleatoriamente y seleccionar según límite
+            const barajadas = [...pool].sort(() => Math.random() - 0.5);
+            setPreguntasRonda(
+              barajadas.slice(0, limitePreguntas).map(barajarOpciones)
+            );
+          }
+        } else if (modo === 'tema' && temaId) {
           // 1. Consultar preguntas específicas del tema en el banco de Supabase
           const preguntasTema = await getPreguntas(temaId);
 
@@ -111,7 +140,7 @@ function TestGameContent() {
     }
 
     cargarPartida();
-  }, [modo, temaId]);
+  }, [modo, temaId, temasParam, limitePreguntas]);
 
   const preguntaActual = preguntasRonda[indiceActual];
 
@@ -213,15 +242,29 @@ function TestGameContent() {
       }
 
       // Guardar sesión en el Diario de Estudio e Historial
-      const nombreSesion = temaId && temaActual
-        ? `Tema ${temaActual.id}: ${temaActual.titulo}`
-        : modo === 'fallos'
-        ? 'Refuerzo Cazador de Fallos'
-        : 'Sesión de Repaso SRS General';
+      let tipoSesion: TipoSesion = 'tema';
+      let nombreSesion = 'Sesión de Estudio';
+
+      if (modo === 'general') {
+        tipoSesion = 'simulacro_general';
+        const countTemas = temasParam === 'all' || !temasParam ? 35 : temasParam.split(',').filter(Boolean).length;
+        nombreSesion = temasParam === 'all' || !temasParam
+          ? '🎯 Simulacro Global (35 temas)'
+          : `🎯 Test General (${countTemas} temas)`;
+      } else if (modo === 'fallos') {
+        tipoSesion = 'fallos';
+        nombreSesion = '💀 Refuerzo de Fallos';
+      } else if (temaId && temaActual) {
+        tipoSesion = 'tema';
+        nombreSesion = `📘 Tema ${temaActual.id}: ${temaActual.titulo}`;
+      } else {
+        tipoSesion = 'repaso_srs';
+        nombreSesion = '🔥 Repaso SRS General';
+      }
 
       guardarSesionEstudio({
         fecha: new Date().toISOString().slice(0, 10),
-        tipo_sesion: (modo as 'tema' | 'repaso_srs' | 'fallos') || 'tema',
+        tipo_sesion: tipoSesion,
         tema_id: temaId || null,
         titulo_sesion: nombreSesion,
         preguntas_respondidas: total,

@@ -80,3 +80,27 @@ CREATE POLICY "Los usuarios solo ven su propio historial de sesiones"
     TO authenticated
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
+
+-- 6. TABLA FICHAS_TECNICAS (Banco Global de Fichas Clave de Examen)
+CREATE TABLE IF NOT EXISTS fichas_tecnicas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tema_id INT NOT NULL REFERENCES temas(id) ON DELETE CASCADE,
+    concepto TEXT NOT NULL,
+    valor_exacto TEXT NOT NULL,
+    trampa_habitual TEXT NOT NULL,
+    categoria_dato TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fichas_tema ON fichas_tecnicas(tema_id);
+
+ALTER TABLE fichas_tecnicas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "fichas_select_publico" ON fichas_tecnicas;
+DROP POLICY IF EXISTS "fichas_insert_controlado" ON fichas_tecnicas;
+DROP POLICY IF EXISTS "fichas_delete_controlado" ON fichas_tecnicas;
+
+CREATE POLICY "fichas_select_publico" ON fichas_tecnicas FOR SELECT USING (true);
+CREATE POLICY "fichas_insert_controlado" ON fichas_tecnicas FOR INSERT WITH CHECK (true);
+CREATE POLICY "fichas_delete_controlado" ON fichas_tecnicas FOR DELETE USING (true);
+

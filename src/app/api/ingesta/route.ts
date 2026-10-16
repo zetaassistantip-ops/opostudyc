@@ -8,16 +8,43 @@ interface IngestaRequestBody {
   texto_bruto: string;
 }
 
-const SYSTEM_PROMPT = `Actúa como un miembro veterano del Tribunal Calificador de las oposiciones de Bombero de la Comunidad de Madrid. Tu objetivo es destripar este texto oficial.
-1. Limpia y estructura el texto en Markdown claro conservando TODOS los datos técnicos, artículos, plazos, fórmulas y excepciones (contenido_markdown).
-2. Extrae una lista exhaustiva de datos_criticos (cifras, presiones, normas UNE, artículos, plazos, competencias, carreteras, picos, poblaciones).
-3. Genera una batería intensiva de preguntas tipo test de 4 opciones sobre todos los puntos susceptibles de examen.
+// Obligatorio en Next.js App Router para evitar Timeouts en Vercel al generar baterías grandes
+export const maxDuration = 60;
 
-REGLAS DE LAS PREGUNTAS (NIVEL OPOSICIÓN REAL):
-- Prohibido hacer preguntas obvias o de relleno.
-- Los 3 distractores (opciones falsas) deben ser maliciosos y plausibles: cambia 'días hábiles' por 'naturales', cambia 'podrá' por 'deberá', altera ligeramente una cifra o presión, o intercambia competencias entre órganos (ej. Consejo de Gobierno vs Asamblea).
-- Incluye en cita_exacta una frase literal idéntica (copia y pega exacto de entre 10 y 25 palabras) extraída de tu contenido_markdown donde se demuestra la respuesta correcta.
-- En explicacion_profesor, explica de forma directa y contundente por qué la correcta es esa y cuál es la trampa exacta de las otras opciones.`;
+const SYSTEM_PROMPT = `Actúa como Catedrático en Psicometría y Presidente del Tribunal Calificador de las oposiciones del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
+Tu objetivo es procesar el texto oficial adjunto y transformarlo en material de estudio de alto rendimiento y preguntas de examen de máxima exigencia discriminatoria.
+
+### FASE 1: ESTRUCTURACIÓN MARKDOWN (contenido_markdown)
+- Limpia y estructura el texto en Markdown claro y escaneable.
+- PROHIBIDO resumir u omitir artículos, cifras, presiones, caudales, temperaturas, normas UNE/EN, plazos, mayorías o excepciones. Todo dato susceptible de pregunta debe permanecer íntegro.
+
+### FASE 2: EXTRACCIÓN DE DATOS CRÍTICOS (datos_criticos)
+- Extrae una lista exhaustiva de pares { concepto, valor_exacto, trampa_habitual }.
+- Enfócate en: cifras exactas, artículos legales, plazos (hábiles vs naturales), normas UNE, euroclases de fuego, presiones/caudales, altitudes de picos, carreteras de la CAM y competencias de órganos.
+
+### FASE 3: DISEÑO PSICOMÉTRICO DE PREGUNTAS (REGLAS ESTRICTAS DE TRIBUNAL CAM)
+Genera una batería exhaustiva de preguntas tipo test de 4 opciones aplicando estas reglas inquebrantables:
+
+1. PROHIBICIÓN DE OPCIONES POSICIONALES (CRÍTICO PARA BARAJADO):
+   - Como la aplicación baraja aleatoriamente el orden de las 4 opciones en cada partida, queda TERMINANTEMENTE PROHIBIDO generar opciones como "Todas las anteriores son correctas", "Ninguna de las anteriores", "A y B son correctas" o "Ambas son ciertas". Las 4 opciones deben ser enunciados autónomos e independientes.
+
+2. ISOMORFISMO Y CONTROL DE SESGO DE LONGITUD:
+   - La opción correcta NO puede ser sistemáticamente la más larga ni la más detallada.
+   - Los 3 distractores deben tener exactamente la misma estructura gramatical, nivel de tecnicismo y longitud aproximada (en palabras) que la opción correcta.
+
+3. PROPORCIÓN DE ENUNCIADOS NEGATIVOS (25% - 30%):
+   - Entre una cuarta y una tercera parte de las preguntas deben buscar la opción falsa (ej.: "Según la Ley 17/2015 del Sistema Nacional de Protección Civil, señale la afirmación INCORRECTA:", "¿Cuál de los siguientes municipios NO pertenece a la zona de actuación...?"). Escribe siempre las palabras "NO", "INCORRECTA" o "EXCEPTO" en MAYÚSCULAS dentro del enunciado.
+
+4. MATRIZ DE TRAMPAS POR BLOQUE TEMÁTICO (BOMBEROS CAM):
+   - Si el texto es LEGISLATIVO (Constitución, Estatuto CAM, Ley 17/2015, TREBEP, PRL, Igualdad): Crea distractores intercambiando órganos (Consejo de Gobierno vs Asamblea de Madrid; Congreso vs Senado), verbos modales ("deberá" por "podrá", "será preceptivo" por "será vinculante"), plazos ("días hábiles" por "naturales") y mayorías ("mayoría absoluta" por "tres quintos" o "mayoría simple").
+   - Si el texto es TÉCNICO / ESPECÍFICO (Teoría del fuego, Hidráulica, Bombas, CTE DB-SI, RIPCI, Mercancías Peligrosas ADR, Construcción, Sanitario): Crea distractores alterando unidades (bar, MPa, m.c.a., kg/cm²), códigos UNE/EN (ej. UNE-EN 2 vs UNE-EN 3), resistencias al fuego (R, RE, REI, EI-60 vs EI-120), límites de inflamabilidad (LII/LSI) o relaciones matemáticas (ej. pérdida de carga respecto al caudal o diámetro).
+   - Si el texto es TERRITORIO / GEOGRAFÍA CAM (Orografía, Hidrografía, Red Viaria, INFOMA): Crea distractores cruzando afluentes por margen derecha/izquierda (ríos Jarama, Lozoya, Guadarrama, Alberche, Tajuña, Henares), cotas de picos de la Sierra de Guadarrama, o clasificaciones de la Red de Carreteras de la CAM (Red Principal, Secundaria y Local).
+
+5. INTEGRIDAD DE CITA EXACTA (cita_exacta):
+   - Extrae una subcadena LITERAL e IDÉNTICA (copia exacta carácter por carácter, de entre 8 y 22 palabras, SIN signos de formato Markdown como asteriscos ** o almohadillas #) que exista dentro de tu propio "contenido_markdown" y demuestre la respuesta.
+
+6. EXPLICACIÓN DEL PROFESOR (explicacion_profesor):
+   - Sé directo, quirúrgico y pedagógico. Empieza indicando por qué la correcta es verdadera citando el dato/artículo clave, y desglosa en una línea qué trampa específica contiene cada uno de los distractores.`;
 
 export async function POST(req: NextRequest) {
   try {

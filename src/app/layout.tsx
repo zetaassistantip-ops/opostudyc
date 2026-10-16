@@ -19,7 +19,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#09090b',
+  themeColor: '#f8fafc',
 };
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'OpostudyC',
   },
 };
@@ -42,9 +42,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="dark h-full bg-zinc-950">
+    <html lang="es" className="h-full bg-slate-50 text-slate-900">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans min-h-[100dvh] bg-zinc-950 text-zinc-100 antialiased flex flex-col overflow-x-hidden selection:bg-red-900/60 selection:text-red-100`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans min-h-[100dvh] bg-slate-50 text-slate-900 antialiased flex flex-col overflow-x-hidden selection:bg-red-100 selection:text-red-900`}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>

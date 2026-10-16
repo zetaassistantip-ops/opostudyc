@@ -36,7 +36,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/90 backdrop-blur-md border-t border-zinc-800/80 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
       <div className="max-w-md mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -47,8 +47,8 @@ export default function BottomNav() {
               prefetch={true}
               className={`relative flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-150 ${
                 item.active
-                  ? 'text-red-500 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 active:scale-95'
+                  ? 'text-red-600 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 active:scale-95'
               }`}
             >
               <div className="relative">
@@ -58,7 +58,7 @@ export default function BottomNav() {
                   }`}
                 />
                 {item.badge && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-red-600 text-white text-[10px] font-bold px-1 py-0.2 rounded-full leading-tight">
+                  <span className="absolute -top-1.5 -right-2.5 bg-red-600 text-white text-[10px] font-bold px-1 py-0.2 rounded-full leading-tight shadow-xs">
                     {item.badge}
                   </span>
                 )}

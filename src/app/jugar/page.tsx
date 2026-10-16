@@ -209,9 +209,9 @@ function TestGameContent() {
   if (cargando) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-12 h-12 border-3 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <h2 className="text-base font-semibold text-zinc-200">Preparando ronda del Tribunal...</h2>
-        <p className="text-xs text-zinc-500 mt-1">Barajando opciones y organizando curva SRS</p>
+        <div className="w-10 h-10 border-3 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <h2 className="text-base font-bold text-slate-900">Cargando sesión de estudio...</h2>
+        <p className="text-xs text-slate-500 mt-1">Organizando preguntas con el algoritmo SRS</p>
       </div>
     );
   }
@@ -225,69 +225,69 @@ function TestGameContent() {
     return (
       <main className="flex-1 flex flex-col max-w-md mx-auto w-full p-4 justify-between animate-fadeIn pb-8">
         <div className="pt-6 text-center space-y-4">
-          <div className="inline-flex p-4 rounded-full bg-zinc-900 border border-zinc-800 shadow-xl">
+          <div className="inline-flex p-4 rounded-full bg-white border border-slate-200 shadow-md">
             {porcentajeAcierto >= 80 ? (
-              <Award className="w-14 h-14 text-emerald-400 animate-bounce" />
+              <Award className="w-12 h-12 text-emerald-600 animate-bounce" />
             ) : porcentajeAcierto >= 50 ? (
-              <Flame className="w-14 h-14 text-amber-500" />
+              <Flame className="w-12 h-12 text-amber-500 fill-amber-500" />
             ) : (
-              <AlertTriangle className="w-14 h-14 text-red-500" />
+              <AlertTriangle className="w-12 h-12 text-red-500" />
             )}
           </div>
 
           <div>
-            <h1 className="text-2xl font-black text-zinc-100">
-              {porcentajeAcierto >= 80 ? '¡Ronda Impecable!' : porcentajeAcierto >= 50 ? 'Buen Entrenamiento' : 'Toca Reforzar'}
+            <h1 className="text-2xl font-black text-slate-900">
+              {porcentajeAcierto >= 80 ? '¡Ronda Completada con Éxito!' : porcentajeAcierto >= 50 ? 'Buen Entrenamiento' : 'Toca Reforzar Conceptos'}
             </h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              El algoritmo SRS ha reprogramado cada pregunta según tu nivel de certeza.
+            <p className="text-xs text-slate-500 mt-1">
+              El algoritmo Leitner ha programado cada pregunta según tu nivel de acierto.
             </p>
           </div>
 
           {/* Tarjeta de métricas */}
           <div className="grid grid-cols-3 gap-2.5 pt-2">
-            <div className="p-3 rounded-2xl bg-zinc-900 border border-emerald-900/40 text-center">
-              <span className="text-2xl font-black text-emerald-400">
+            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
+              <span className="text-2xl font-black text-emerald-600">
                 {estadisticasRonda.aciertosSeguros}
               </span>
-              <span className="block text-[11px] text-zinc-400 font-medium mt-0.5">
-                Seguros (100%)
+              <span className="block text-[11px] text-slate-500 font-semibold mt-0.5">
+                Seguros
               </span>
             </div>
 
-            <div className="p-3 rounded-2xl bg-zinc-900 border border-amber-900/40 text-center">
-              <span className="text-2xl font-black text-amber-400">
+            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
+              <span className="text-2xl font-black text-amber-600">
                 {estadisticasRonda.aciertosDuda}
               </span>
-              <span className="block text-[11px] text-zinc-400 font-medium mt-0.5">
+              <span className="block text-[11px] text-slate-500 font-semibold mt-0.5">
                 Con Duda
               </span>
             </div>
 
-            <div className="p-3 rounded-2xl bg-zinc-900 border border-red-900/40 text-center">
-              <span className="text-2xl font-black text-red-400">
+            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-center shadow-2xs">
+              <span className="text-2xl font-black text-red-600">
                 {estadisticasRonda.fallos}
               </span>
-              <span className="block text-[11px] text-zinc-400 font-medium mt-0.5">
+              <span className="block text-[11px] text-slate-500 font-semibold mt-0.5">
                 Fallos
               </span>
             </div>
           </div>
 
           {/* Explicación de impacto SRS */}
-          <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-left text-xs space-y-1.5 text-zinc-400">
-            <div className="flex items-center gap-1.5 text-zinc-200 font-bold">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              Impacto en la Curva del Olvido:
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 text-left text-xs space-y-1.5 text-slate-600 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-slate-900 font-bold">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              Impacto en tu calendario de estudio:
             </div>
             <p>
-              • <strong className="text-emerald-400">{estadisticasRonda.aciertosSeguros} preguntas</strong> suben de caja y se espacian hasta 35 días.
+              • <strong className="text-emerald-700">{estadisticasRonda.aciertosSeguros} preguntas</strong> afianzadas en cajas superiores (espaciadas hasta 35 días).
             </p>
             <p>
-              • <strong className="text-amber-400">{estadisticasRonda.aciertosDuda} preguntas</strong> se quedan en Caja 1 y reaparecerán mañana en 24h.
+              • <strong className="text-amber-700">{estadisticasRonda.aciertosDuda} preguntas</strong> en observación para repasar en 24h.
             </p>
             <p>
-              • <strong className="text-red-400">{estadisticasRonda.fallos} fallos</strong> vuelven a Caja 0 y te saldrán en 10 minutos para corregir la trampa.
+              • <strong className="text-red-700">{estadisticasRonda.fallos} fallos</strong> devueltos a Caja 0 para corregir pronto.
             </p>
           </div>
         </div>
@@ -296,24 +296,17 @@ function TestGameContent() {
         <div className="space-y-2.5 pt-6">
           <button
             onClick={reiniciarRonda}
-            className="w-full py-3.5 bg-red-600 hover:bg-red-500 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Jugar otra Ronda de Repaso</span>
+            <span>Entrenar Otra Ronda</span>
           </button>
 
           <Link
-            href="/chuleta"
-            className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] text-zinc-300 font-semibold text-sm rounded-xl transition-all border border-zinc-800 flex items-center justify-center gap-2"
-          >
-            <span>Ver Chuleta Express de Datos Críticos</span>
-          </Link>
-
-          <Link
             href="/"
-            className="w-full py-2.5 text-zinc-400 hover:text-zinc-200 font-medium text-xs text-center block"
+            className="w-full py-2.5 text-slate-500 hover:text-slate-800 font-semibold text-xs text-center block"
           >
-            Volver al Mapa de los 35 Temas
+            Volver al Temario Principal
           </Link>
         </div>
       </main>
@@ -323,7 +316,7 @@ function TestGameContent() {
   if (!preguntaActual) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-zinc-400 text-sm">No se encontraron preguntas para esta ronda.</p>
+        <p className="text-slate-500 text-sm">No se encontraron preguntas para esta ronda.</p>
         <Link href="/" className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">
           Volver al Inicio
         </Link>
@@ -340,7 +333,7 @@ function TestGameContent() {
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 active:scale-95 transition-all shadow-2xs"
             aria-label="Salir"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -348,11 +341,11 @@ function TestGameContent() {
 
           {/* Progreso */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-mono font-bold text-zinc-200">
+            <span className="text-xs font-mono font-bold text-slate-900">
               {indiceActual + 1}
             </span>
-            <span className="text-xs text-zinc-500 font-mono">/</span>
-            <span className="text-xs font-mono text-zinc-400">
+            <span className="text-xs text-slate-400 font-mono">/</span>
+            <span className="text-xs font-mono text-slate-500">
               {preguntasRonda.length}
             </span>
           </div>
@@ -360,13 +353,13 @@ function TestGameContent() {
           {/* Badges de estado Leitner y fallos */}
           <div className="flex items-center gap-1.5">
             {preguntaActual.fallos_totales > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-950/80 border border-red-800/80 text-red-400">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700">
                 <AlertTriangle className="w-3 h-3" />
-                Fallada {preguntaActual.fallos_totales} {preguntaActual.fallos_totales === 1 ? 'vez' : 'veces'}
+                {preguntaActual.fallos_totales} {preguntaActual.fallos_totales === 1 ? 'duda' : 'dudas'}
               </span>
             )}
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCaja.badgeBg} ${badgeCaja.color}`}
+              className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-200 font-mono"
             >
               Caja {preguntaActual.caja_leitner}
             </span>
@@ -374,7 +367,7 @@ function TestGameContent() {
         </div>
 
         {/* Barra de progreso visual */}
-        <div className="w-full h-1 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/50">
+        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
           <div
             className="h-full bg-red-600 transition-all duration-300 rounded-full"
             style={{ width: `${((indiceActual + 1) / preguntasRonda.length) * 100}%` }}
@@ -382,37 +375,37 @@ function TestGameContent() {
         </div>
 
         {/* Tema y epígrafe */}
-        <div className="flex items-center justify-between text-[11px] text-zinc-400 truncate pt-0.5">
-          <span className="font-semibold text-red-400 truncate">
+        <div className="flex items-center justify-between text-[11px] text-slate-500 truncate pt-0.5">
+          <span className="font-semibold text-red-600 truncate">
             Tema {preguntaActual.tema_id}: {temaActual?.titulo?.slice(0, 32)}...
           </span>
           {preguntaActual.dato_clave_etiqueta && (
-            <span className="text-[10px] text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800 flex-shrink-0 font-mono">
+            <span className="text-[10px] text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex-shrink-0 font-mono shadow-2xs">
               {preguntaActual.dato_clave_etiqueta}
             </span>
           )}
         </div>
       </header>
 
-      {/* 2. ZONA CENTRAL: ENUNCIADO Y OPCIONES (CON ANTI-MEMORIA VISUAL) */}
+      {/* 2. ZONA CENTRAL: ENUNCIADO Y OPCIONES */}
       <main className="my-auto py-3 space-y-3 flex-1 flex flex-col justify-center">
         {/* ENUNCIADO */}
-        <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/90 shadow-md">
-          <p className="text-sm font-semibold text-zinc-100 leading-snug">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+          <p className="text-sm font-bold text-slate-900 leading-snug">
             {preguntaActual.enunciado}
           </p>
         </div>
 
-        {/* TOGGLE PREVIO "CON DUDA" (si aún no ha respondido) */}
+        {/* TOGGLE PREVIO "CON DUDA" */}
         {!haRespondido && (
           <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] text-zinc-400">¿Dudas de la respuesta?</span>
+            <span className="text-[11px] text-slate-500 font-medium">¿Dudas de la respuesta?</span>
             <button
               onClick={() => setMarcarConDudaPrevia(!marcarConDudaPrevia)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all border ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
                 marcarConDudaPrevia
-                  ? 'bg-amber-950/80 border-amber-600 text-amber-300'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-300'
+                  ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
@@ -421,7 +414,7 @@ function TestGameContent() {
           </div>
         )}
 
-        {/* LAS 4 OPCIONES BARAJADAS DINÁMICAMENTE */}
+        {/* LAS 4 OPCIONES */}
         <div className="space-y-2">
           {preguntaActual.opcionesBarajadas.map((opcion, index) => {
             const letras = ['A', 'B', 'C', 'D'];
@@ -430,22 +423,22 @@ function TestGameContent() {
             const esLaSeleccionada = opcion.indiceOriginal === opcionSeleccionadaOriginal;
 
             // Estilos dinámicos según estado de corrección
-            let botonClases = 'bg-zinc-900 hover:bg-zinc-850 border-zinc-800 text-zinc-200 active:scale-[0.99]';
-            let badgeLetraClases = 'bg-zinc-800 text-zinc-400 border-zinc-700';
+            let botonClases = 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-800 shadow-2xs active:scale-[0.99]';
+            let badgeLetraClases = 'bg-slate-100 text-slate-600 border-slate-200';
 
             if (haRespondido) {
               if (esLaCorrecta) {
-                // Correcta siempre verde
-                botonClases = 'bg-emerald-950/90 border-emerald-500 text-emerald-100 font-medium ring-1 ring-emerald-500';
-                badgeLetraClases = 'bg-emerald-600 text-white border-emerald-400';
+                // Correcta
+                botonClases = 'bg-emerald-50 border-emerald-400 text-emerald-950 font-semibold ring-1 ring-emerald-400 shadow-2xs';
+                badgeLetraClases = 'bg-emerald-600 text-white border-emerald-500';
               } else if (esLaSeleccionada) {
-                // Marcó incorrecta en rojo
-                botonClases = 'bg-red-950/90 border-red-600 text-red-100 ring-1 ring-red-600';
-                badgeLetraClases = 'bg-red-600 text-white border-red-400';
+                // Marcó incorrecta
+                botonClases = 'bg-rose-50 border-rose-400 text-rose-950 ring-1 ring-rose-400 shadow-2xs';
+                badgeLetraClases = 'bg-rose-600 text-white border-rose-500';
               } else {
-                // Otras no marcadas apagadas
-                botonClases = 'bg-zinc-950/60 border-zinc-850/60 text-zinc-500 opacity-60';
-                badgeLetraClases = 'bg-zinc-900 text-zinc-600 border-zinc-800';
+                // Otras no marcadas
+                botonClases = 'bg-slate-50 border-slate-200/60 text-slate-400 opacity-60';
+                badgeLetraClases = 'bg-slate-100 text-slate-400 border-slate-200';
               }
             }
 
@@ -454,7 +447,7 @@ function TestGameContent() {
                 key={index}
                 onClick={() => handleSeleccionarOpcion(opcion.indiceOriginal)}
                 disabled={haRespondido}
-                className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 shadow-xs ${botonClases}`}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 ${botonClases}`}
               >
                 <span
                   className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 border mt-0.5 ${badgeLetraClases}`}
@@ -465,10 +458,10 @@ function TestGameContent() {
                   {opcion.texto}
                 </span>
                 {haRespondido && esLaCorrecta && (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                 )}
                 {haRespondido && esLaSeleccionada && !esLaCorrecta && (
-                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
                 )}
               </button>
             );
@@ -476,47 +469,47 @@ function TestGameContent() {
         </div>
       </main>
 
-      {/* 3. PANEL DE FEEDBACK INMEDIATO Y BOTÓN ESTRELLA DE TEMARIO */}
+      {/* 3. PANEL DE FEEDBACK INMEDIATO */}
       {haRespondido && (
         <section className="space-y-2.5 pt-2 flex-shrink-0 animate-slideUp">
-          {/* Si acertó: Selector de Certeza (100% Seguro vs Dudé/Descarte) */}
+          {/* Si acertó: Selector de Certeza */}
           {opcionSeleccionadaOriginal === preguntaActual.respuesta_correcta && (
-            <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-zinc-400 font-medium pl-1">
+            <div className="p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-between gap-2 shadow-2xs">
+              <span className="text-[11px] text-slate-600 font-semibold pl-1">
                 ¿Cómo acertaste?
               </span>
               <div className="flex gap-1.5">
                 <button
                   onClick={() => cambiarCertezaAcierto('acierto_seguro')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
                     evaluacionSRS === 'acierto_seguro'
-                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-xs'
-                      : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white'
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
-                  ✅ 100% Seguro
+                  100% Seguro
                 </button>
                 <button
                   onClick={() => cambiarCertezaAcierto('acierto_duda')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
                     evaluacionSRS === 'acierto_duda'
-                      ? 'bg-amber-600 border-amber-400 text-white shadow-xs'
-                      : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white'
+                      ? 'bg-amber-600 border-amber-600 text-white shadow-2xs'
+                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
-                  🤔 Con Duda / Descarte
+                  Con Duda
                 </button>
               </div>
             </div>
           )}
 
-          {/* Tarjeta del Profesor con la explicación de la trampa */}
-          <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs space-y-1.5 shadow-md">
-            <div className="flex items-center justify-between text-zinc-300 font-bold">
-              <span className="flex items-center gap-1.5 text-red-400">
-                👨‍🚒 Tribunal Calificador:
+          {/* Tarjeta del Profesor */}
+          <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between text-slate-800 font-bold">
+              <span className="flex items-center gap-1.5 text-slate-900 font-bold">
+                Explicación Técnica:
               </span>
-              <span className="text-[11px] text-zinc-400 font-mono">
+              <span className="text-[11px] text-slate-500 font-mono font-medium">
                 {evaluacionSRS === 'fallo'
                   ? 'Repaso en 10 min'
                   : evaluacionSRS === 'acierto_duda'
@@ -524,7 +517,7 @@ function TestGameContent() {
                   : 'Sube de Caja Leitner'}
               </span>
             </div>
-            <p className="text-zinc-300 leading-relaxed text-[12px]">
+            <p className="text-slate-700 leading-relaxed text-[12px]">
               {preguntaActual.explicacion_profesor}
             </p>
           </div>
@@ -532,16 +525,16 @@ function TestGameContent() {
           {/* BOTÓN ESTRELLA: VER PUNTO EXACTO EN EL TEMARIO */}
           <button
             onClick={() => setDrawerAbierto(true)}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-950/70 to-yellow-950/70 border border-amber-600/60 hover:border-amber-500 text-amber-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-md shadow-amber-950/20"
+            className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/90 border border-amber-300 text-amber-950 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-2xs"
           >
-            <BookOpen className="w-4 h-4 text-yellow-400" />
-            <span>📖 Ver punto exacto en el Temario (Subrayado Oficial)</span>
+            <BookOpen className="w-4 h-4 text-amber-600" />
+            <span>Consultar cita oficial en el Temario</span>
           </button>
 
           {/* Botón Siguiente Pregunta */}
           <button
             onClick={handleSiguiente}
-            className="w-full py-3 bg-red-600 hover:bg-red-500 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
           >
             <span>
               {indiceActual + 1 < preguntasRonda.length

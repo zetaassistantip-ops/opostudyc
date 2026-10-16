@@ -102,24 +102,24 @@ function ChuletaContent() {
         <div className="flex items-center gap-2.5">
           <Link
             href="/"
-            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 active:scale-95 transition-all shadow-2xs"
             aria-label="Volver"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-base font-black text-zinc-100 flex items-center gap-1.5 leading-none">
-              <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span>Chuleta Express</span>
+            <h1 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5 leading-none">
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+              <span>Fichas Técnicas</span>
             </h1>
-            <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
-              Cifras, plazos, presiones y normas UNE puras
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Cifras, plazos, presiones y normas UNE
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-800/60 text-amber-400">
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 shadow-2xs">
             {chuletasFiltradas.length} fichas
           </span>
           <UserAuthButton />
@@ -129,13 +129,13 @@ function ChuletaContent() {
       {/* 2. BARRA DE BÚSQUEDA Y SELECTOR DE TEMAS */}
       <div className="space-y-2">
         <div className="relative">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por concepto, cifra o trampa (ej. 72h, 1/D⁵, 15 junio)..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-hidden focus:border-amber-500 transition-colors"
+            placeholder="Buscar por concepto o cifra (ej. 72h, UNE, bar, metros)..."
+            className="w-full bg-white border border-slate-200/90 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-400 focus:ring-1 focus:ring-slate-300 shadow-2xs transition-all"
           />
         </div>
 
@@ -143,10 +143,10 @@ function ChuletaContent() {
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
           <button
             onClick={() => setTemaSeleccionado('todos')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors border ${
+            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all border ${
               temaSeleccionado === 'todos'
-                ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold'
-                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+                ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-2xs'
+                : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50'
             }`}
           >
             Todos los Temas
@@ -155,13 +155,13 @@ function ChuletaContent() {
             <button
               key={t.id}
               onClick={() => setTemaSeleccionado(t.id)}
-              className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition-colors border ${
+              className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all border ${
                 temaSeleccionado === t.id
-                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold'
-                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+                  ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-2xs'
+                  : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50'
               }`}
             >
-              T{t.id}: {t.titulo.slice(0, 20)}...
+              T{t.id}: {t.titulo.slice(0, 18)}...
             </button>
           ))}
         </div>
@@ -169,51 +169,45 @@ function ChuletaContent() {
 
       {/* 3. LISTADO DE FICHAS DE DATOS CRÍTICOS */}
       {chuletasFiltradas.length === 0 ? (
-        <div className="py-16 text-center text-zinc-400 space-y-2">
+        <div className="py-16 text-center text-slate-500 space-y-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
           <AlertOctagon className="w-8 h-8 mx-auto text-amber-500" />
-          <p className="text-sm font-semibold text-zinc-300">
-            No hay datos críticos registrados para este filtro.
+          <p className="text-sm font-bold text-slate-800">
+            No hay datos técnicos registrados para este filtro.
           </p>
-          <p className="text-xs text-zinc-500">
-            Puedes generar más ingiriendo epígrafes del temario con la IA del Tribunal.
+          <p className="text-xs text-slate-500">
+            Selecciona otro tema o utiliza el buscador superior.
           </p>
-          <Link
-            href="/admin/ingesta"
-            className="inline-block mt-2 px-3 py-1.5 rounded-lg bg-zinc-800 text-xs font-bold text-zinc-200"
-          >
-            Ingestar con IA
-          </Link>
         </div>
       ) : (
         <div className="space-y-3">
           {chuletasFiltradas.map((item, idx) => (
             <div
               key={idx}
-              className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-2 hover:border-amber-900/50 transition-colors"
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2.5 hover:border-slate-300 transition-all"
             >
               {/* Epígrafe y badge del tema */}
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 border-b border-zinc-800/60 pb-1.5">
-                <span className="font-bold text-amber-400">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 pb-2">
+                <span className="font-bold text-red-600">
                   Tema {item.tema_id}
                 </span>
-                <span className="truncate max-w-[200px] text-zinc-400">
+                <span className="truncate max-w-[210px] text-slate-500 font-medium">
                   {item.epigrafe}
                 </span>
               </div>
 
               {/* Concepto y Valor Exacto */}
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-300 block">
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-800 block">
                   {item.concepto}
                 </span>
-                <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
                       Dato Oficial:
                     </span>
                   </div>
-                  <span className="font-mono font-black text-sm text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded-lg text-right">
+                  <span className="font-mono font-black text-sm text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg text-right">
                     {item.valor_exacto}
                   </span>
                 </div>
@@ -221,10 +215,10 @@ function ChuletaContent() {
 
               {/* Trampa habitual de examen */}
               {item.trampa_habitual && (
-                <div className="p-2 rounded-xl bg-red-950/30 border border-red-900/40 text-[11px] text-red-200/90 flex items-start gap-2">
-                  <AlertOctagon className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-[11px] text-rose-900 flex items-start gap-2">
+                  <AlertOctagon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-red-300">Trampa de Tribunal: </span>
+                    <span className="font-bold text-rose-700">Trampa de examen: </span>
                     {item.trampa_habitual}
                   </div>
                 </div>

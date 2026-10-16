@@ -21,7 +21,7 @@ export default function UserAuthButton() {
 
   if (loading) {
     return (
-      <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse border border-zinc-700/60" />
+      <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse border border-slate-300" />
     );
   }
 
@@ -29,7 +29,7 @@ export default function UserAuthButton() {
     return (
       <button
         onClick={() => signInWithGoogle()}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-200 text-xs font-medium transition-all shadow-sm active:scale-95"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold transition-all shadow-xs active:scale-95"
         title="Inicia sesión con Google para guardar tu progreso"
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -63,9 +63,9 @@ export default function UserAuthButton() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setMenuAbierto(!menuAbierto)}
-        className="flex items-center gap-2 p-1 pl-2 pr-1 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 transition-all text-left group"
+        className="flex items-center gap-2 p-1 pl-2 pr-1 rounded-full bg-white hover:bg-slate-50 border border-slate-200/90 shadow-xs transition-all text-left group"
       >
-        <span className="text-xs font-medium text-zinc-300 max-w-[90px] truncate hidden sm:inline-block">
+        <span className="text-xs font-semibold text-slate-700 max-w-[90px] truncate hidden sm:inline-block">
           {nombre}
         </span>
         {avatarUrl ? (
@@ -73,22 +73,22 @@ export default function UserAuthButton() {
           <img
             src={avatarUrl}
             alt={nombre}
-            className="w-7 h-7 rounded-full object-cover ring-1 ring-red-500/50"
+            className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200"
           />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-red-600/30 text-red-400 flex items-center justify-center text-xs font-bold ring-1 ring-red-500/50">
+          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold ring-1 ring-slate-200">
             {nombre.slice(0, 1).toUpperCase()}
           </div>
         )}
       </button>
 
       {menuAbierto && (
-        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-2 border-b border-zinc-800/80">
-            <p className="text-sm font-semibold text-white truncate">{nombre}</p>
-            <p className="text-xs text-zinc-400 truncate mt-0.5">{email}</p>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] font-medium text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5" />
+        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-3 py-2 border-b border-slate-100">
+            <p className="text-sm font-bold text-slate-900 truncate">{nombre}</p>
+            <p className="text-xs text-slate-500 truncate mt-0.5">{email}</p>
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Progreso sincronizado en la nube</span>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function UserAuthButton() {
                 setMenuAbierto(false);
                 signOut();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span>Cerrar sesión</span>

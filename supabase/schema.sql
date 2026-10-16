@@ -92,52 +92,43 @@ CREATE TRIGGER trg_proteger_contenido_preguntas
     FOR EACH ROW
     EXECUTE FUNCTION proteger_contenido_preguntas();
 
--- 7. INSERT INICIAL: LOS 35 TEMAS OFICIALES BOMBEROS CAM
+-- 7. INSERT INICIAL: LOS 35 TEMAS OFICIALES BOMBEROS CAM (SEGÚN CONVOCATORIA Y PDFS)
 INSERT INTO temas (id, titulo, bloque) VALUES
--- BLOQUE I: DERECHO, LEGISLACIÓN Y PROTECCIÓN CIVIL (Temas 1 al 10)
-(1, 'La Constitución Española de 1978: Principios, Derechos y Deberes', 'Legislación y Organización'),
-(2, 'La Corona, las Cortes Generales y el Poder Judicial', 'Legislación y Organización'),
-(3, 'El Gobierno y la Administración. La Administración General del Estado', 'Legislación y Organización'),
-(4, 'Organización territorial del Estado y Estatuto de Autonomía de la Comunidad de Madrid', 'Legislación y Organización'),
-(5, 'Instituciones de autogobierno de la Comunidad de Madrid: Asamblea y Gobierno', 'Legislación y Organización'),
-(6, 'Régimen Local Español: El Municipio y la Provincia. Ley 7/1985', 'Legislación y Organización'),
-(7, 'Estatuto Básico del Empleado Público (TREBEP): Derechos, Deberes y Régimen Disciplinario', 'Legislación y Organización'),
-(8, 'Ley 17/2015 del Sistema Nacional de Protección Civil', 'Legislación y Organización'),
-(9, 'Ley 31/1995 de Prevención de Riesgos Laborales aplicada a los Servicios de Bomberos', 'Legislación y Organización'),
-(10, 'Plan Territorial de Protección Civil de la Comunidad de Madrid (PLATERCAM) y Planes Especiales', 'Legislación y Organización'),
-
--- BLOQUE II: FÍSICA, QUÍMICA, HIDRÁULICA Y FUEGO (Temas 11 al 18)
-(11, 'Física y Química del Fuego: Triángulo y Tetraedro, Mecanismos de Extinción', 'Teoría del Fuego e Hidráulica'),
-(12, 'Dinámica de Incendios Confinados: Flashover, Backdraft, Flujo de Gases y Ventilación Táctica', 'Teoría del Fuego e Hidráulica'),
-(13, 'Agentes Extintores: Agua, Espumas, Polvos Químicos y Gases Inertes (UNE-EN 2)', 'Teoría del Fuego e Hidráulica'),
-(14, 'Mecánica de Fluidos e Hidráulica Aplicada: Presión, Caudal, Pérdida de Carga y Golpe de Ariete', 'Teoría del Fuego e Hidráulica'),
-(15, 'Mangueras, Lanzas, Racores y Accesorios Hidráulicos (Normas UNE)', 'Teoría del Fuego e Hidráulica'),
-(16, 'Bombas Centrífugas contra Incendios: Cebadores, Curvas Características y Cavitación', 'Teoría del Fuego e Hidráulica'),
-(17, 'Equipos de Protección Individual (EPIs) y Protección Respiratoria (ERA): Fisiología y Autonomía', 'Técnicas y Equipos'),
-(18, 'Materias Peligrosas (ADR): Identificación, Paneles Naranja, Diamante NFPA y Niveles de Riesgo', 'Técnicas y Equipos'),
-
--- BLOQUE III: CONSTRUCCIÓN, INSTALACIONES Y RESCATE (Temas 19 al 26)
-(19, 'Código Técnico de la Edificación (CTE): DB SI Seguridad en caso de Incendio', 'Construcción y Normativa'),
-(20, 'Elementos Estructurales y Comportamiento al Fuego de Materiales (Hormigón, Acero, Madera)', 'Construcción y Normativa'),
-(21, 'Patologías de la Edificación, Apuntalamientos de Emergencia y Técnicas de Desescombro', 'Construcción y Normativa'),
-(22, 'Instalaciones de Gas: GLP, Gas Natural, Depósitos, Redes de Distribución y Actuación', 'Instalaciones y Seguridad'),
-(23, 'Instalaciones Eléctricas de Baja y Alta Tensión: Riesgo Eléctrico y Distancias de Seguridad', 'Instalaciones y Seguridad'),
-(24, 'Instalaciones de Protección contra Incendios (RIPCI): BIEs, Hidrantes, Rociadores y Columna Seca', 'Instalaciones y Seguridad'),
-(25, 'Técnicas de Rescate en Accidentes de Tráfico: Descarcelación, Estabilización y Vehículos Híbridos/Eléctricos', 'Rescate y Salvamento'),
-(26, 'Rescate en Altura, Espacios Confinados y Salvamento en Medio Acuático', 'Rescate y Salvamento'),
-
--- BLOQUE IV: GEOGRAFÍA, TERRITORIO Y MEDIO NATURAL CAM (Temas 27 al 31)
-(27, 'Geografía Física de la Comunidad de Madrid: Relieve, Principales Vértices y Pasos de Montaña', 'Geografía y Territorio CAM'),
-(28, 'Hidrografía de la Comunidad de Madrid: Cuenca del Tajo, Ríos, Embalses y Canal de Isabel II', 'Geografía y Territorio CAM'),
-(29, 'Red de Comunicaciones: Autovías, Carreteras Principales, Ferrocarriles y Red de Metro CAM', 'Geografía y Territorio CAM'),
-(30, 'División Comarcal, Municipios, Parques de Bomberos del Cuerpo de Bomberos de la CAM', 'Geografía y Territorio CAM'),
-(31, 'Plan INFOMA: Incendios Forestales en la CAM, Índices de Gravedad, Focos y Modelos de Combustible', 'Geografía y Territorio CAM'),
-
--- BLOQUE V: EMERGENCIAS SANITARIAS Y PSICOLOGÍA (Temas 32 al 35)
-(32, 'Soporte Vital Básico (SVB), Reanimación Cardiopulmonar (RCP) y Desfibrilación Semiautomática (DESA)', 'Sanitario y Primeros Auxilios'),
-(33, 'Atención Inicial al Paciente Politraumatizado en Emergencias: Movilización e Inmovilización', 'Sanitario y Primeros Auxilios'),
-(34, 'Urgencias Médicas: Quemaduras, Intoxicación por Humos (Cianuro y Monóxido de Carbono), Hipotermia', 'Sanitario y Primeros Auxilios'),
-(35, 'Triage en Incidentes con Múltiples Víctimas (IMV) y Primeros Auxilios Psicológicos en Catástrofes', 'Sanitario y Primeros Auxilios')
+(1, 'La Función Pública', 'Legislación y Organización'),
+(2, 'Igualdad de Oportunidades y No Discriminación', 'Legislación y Organización'),
+(3, 'Prevención de Riesgos Laborales (PRL) y EPI', 'Legislación y Organización'),
+(4, 'Decreto Legislativo 1/2006 (Cuerpo de Bomberos CAM)', 'Legislación y Organización'),
+(5, 'Sistema Nacional de Protección Civil (SNPC)', 'Legislación y Organización'),
+(6, 'Plan Territorial de Protección Civil (PLATERCAM)', 'Legislación y Organización'),
+(7, 'Código Técnico de la Edificación (CTE DB SI)', 'Construcción y Normativa'),
+(8, 'Territorio y Red de Infraestructuras de la CM', 'Geografía y Territorio CAM'),
+(9, 'Organización del Cuerpo de Bomberos de la CM (CBCM)', 'Legislación y Organización'),
+(10, 'Mecánica Básica de Vehículos de Bomberos', 'Técnicas y Conducción'),
+(11, 'Comunicaciones en Emergencias (TETRA)', 'Técnicas y Conducción'),
+(12, 'Soporte Vital Básico I (SVB I)', 'Sanitario y Primeros Auxilios'),
+(13, 'Soporte Vital Básico II (SVB II)', 'Sanitario y Primeros Auxilios'),
+(14, 'Psicología para Intervinientes en Emergencias', 'Sanitario y Primeros Auxilios'),
+(15, 'Hidráulica de Bomberos y Mecánica de Fluidos', 'Teoría del Fuego e Hidráulica'),
+(16, 'Naturaleza del Fuego, Métodos y Agentes Extintores', 'Teoría del Fuego e Hidráulica'),
+(17, 'Incendios en la Edificación I', 'Técnicas de Intervención'),
+(18, 'Incendios en la Edificación II', 'Técnicas de Intervención'),
+(19, 'Incendios de Vegetación I (Combustibles y Comportamiento)', 'Técnicas de Intervención'),
+(20, 'Incendios de Vegetación II (Tácticas y Medios INFOMA)', 'Técnicas de Intervención'),
+(21, 'Riesgo Químico y Biológico I (RBQ I - ADR)', 'Técnicas y Materias Peligrosas'),
+(22, 'Riesgo Químico y Biológico II (RBQ II - Descontaminación)', 'Técnicas y Materias Peligrosas'),
+(23, 'Construcción I (Materiales y Estructuras)', 'Construcción y Normativa'),
+(24, 'Construcción II (Patologías y Apuntalamientos)', 'Construcción y Normativa'),
+(25, 'Rescate en Accidentes de Tráfico I (RAT I)', 'Rescate y Salvamento'),
+(26, 'Rescate en Accidentes de Tráfico II (RAT II - Descarcelación)', 'Rescate y Salvamento'),
+(27, 'Trabajos Verticales y en Altura', 'Rescate y Salvamento'),
+(28, 'Riesgo Eléctrico y Distancias de Seguridad', 'Instalaciones y Seguridad'),
+(29, 'Suministros de Gas (GLP y Gas Natural)', 'Instalaciones y Seguridad'),
+(30, 'Intervenciones con Abejas y Avispas (Himenópteros)', 'Técnicas Especiales'),
+(31, 'Ascensores y Aperturas Forzosas', 'Técnicas Especiales'),
+(32, 'Apeos y Tala de Arbolado en Emergencias', 'Técnicas Especiales'),
+(33, 'Actuación en Conductas Autolíticas (Prevención del Suicidio)', 'Sanitario y Primeros Auxilios'),
+(34, 'Rescate Acuático y en Inundaciones', 'Rescate y Salvamento'),
+(35, 'Conducción Segura en Emergencias', 'Técnicas y Conducción')
 ON CONFLICT (id) DO UPDATE SET 
     titulo = EXCLUDED.titulo,
     bloque = EXCLUDED.bloque;

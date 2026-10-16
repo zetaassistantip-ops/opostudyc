@@ -15,16 +15,19 @@ import {
   BookOpen,
   Filter,
 } from 'lucide-react';
-import { Tema, Pregunta, EstadisticasGlobales } from '@/lib/types';
-import { getTemas, getPreguntas } from '@/lib/supabase';
+import { Tema, Pregunta, EstadisticasGlobales, SesionEstudio } from '@/lib/types';
+import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from '@/lib/supabase';
 import BottomNav from '@/components/BottomNav';
 import UserAuthButton from '@/components/UserAuthButton';
+import RachaDiarioModal from '@/components/RachaDiarioModal';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPrincipal() {
   const { user } = useAuth();
   const [temas, setTemas] = useState<Tema[]>([]);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
+  const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
+  const [modalRachaAbierto, setModalRachaAbierto] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [bloqueFiltro, setBloqueFiltro] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -37,19 +40,21 @@ export default function DashboardPrincipal() {
     enObservacion: 0,
     nuevas: 0,
     porcentajeDominio: 0,
-    rachaDias: 6,
+    rachaDias: 0,
     falladasHistoricas: 0,
   });
 
   useEffect(() => {
     async function cargarDatos() {
       try {
-        const [listaTemas, listaPreguntas] = await Promise.all([
+        const [listaTemas, listaPreguntas, listaSesiones] = await Promise.all([
           getTemas(),
           getPreguntas(),
+          getHistorialSesiones(),
         ]);
         setTemas(listaTemas);
         setPreguntas(listaPreguntas);
+        setSesiones(listaSesiones);
 
         // Cálculo de métricas
         const ahora = Date.now();
@@ -78,8 +83,12 @@ export default function DashboardPrincipal() {
           }
         });
 
-        const total = listaPreguntas.length || 1;
-        const porcentajeDominio = Math.round(((dominadas * 1.0 + asentadas * 0.6) / total) * 100);
+        const total = listaPreguntas.length || 0;
+        const porcentajeDominio = total > 0
+          ? Math.round(((dominadas * 1.0 + asentadas * 0.6) / total) * 100)
+          : 0;
+
+        const rachaReal = calcularRachaDias(listaSesiones);
 
         setStats({
           totalPreguntas: listaPreguntas.length,
@@ -89,7 +98,7 @@ export default function DashboardPrincipal() {
           enObservacion,
           nuevas,
           porcentajeDominio,
-          rachaDias: 6,
+          rachaDias: rachaReal,
           falladasHistoricas,
         });
       } catch (err) {
@@ -159,10 +168,14 @@ export default function DashboardPrincipal() {
 
         {/* Acciones de usuario y racha */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-semibold shadow-2xs">
+          <button
+            onClick={() => setModalRachaAbierto(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100/90 active:scale-95 border border-amber-200/80 text-amber-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            title="Ver diario y racha de estudio"
+          >
             <Flame className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
             <span>{stats.rachaDias} días</span>
-          </div>
+          </button>
           <UserAuthButton />
         </div>
       </header>
@@ -272,7 +285,7 @@ export default function DashboardPrincipal() {
               <Skull className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-              {stats.falladasHistoricas} dudas
+              {stats.falladasHistoricas} dudas / fallos
             </span>
           </div>
           <div>
@@ -431,7 +444,15 @@ export default function DashboardPrincipal() {
       </section>
 
       {/* Barra de navegación inferior fija para mobile */}
-      <BottomNav />
+      <BottomNav badgeRepaso={stats.enLlamasHoy} />
+
+      {/* Modal / Drawer Diario de Racha */}
+      <RachaDiarioModal
+        abierto={modalRachaAbierto}
+        onCerrar={() => setModalRachaAbierto(false)}
+        rachaDias={stats.rachaDias}
+        sesiones={sesiones}
+      />
     </div>
   );
 }

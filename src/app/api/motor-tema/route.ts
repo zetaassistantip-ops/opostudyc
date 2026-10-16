@@ -12,12 +12,21 @@ interface MotorTemaRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    const body: MotorTemaRequest = await req.json();
+    let body: MotorTemaRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de solicitud inválido (debe ser JSON).' },
+        { status: 400 }
+      );
+    }
+
     const { temaId, forzarGeneracion = false } = body;
 
     if (!temaId || typeof temaId !== 'number') {
       return NextResponse.json(
-        { error: 'El parámetro temaId es obligatorio y debe ser numérico.' },
+        { error: 'El parámetro temaId es obligatorio y debe ser un número entero.' },
         { status: 400 }
       );
     }
@@ -32,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { error: 'Configuración de Supabase no disponible en el servidor.' },
+        { error: 'Configuración de Supabase no disponible en el servidor (faltan URLs o Claves).' },
         { status: 500 }
       );
     }
@@ -48,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     if (errorTema || !tema) {
       return NextResponse.json(
-        { error: `No se encontró el Tema ${temaId} en la base de datos.` },
+        { error: `No se encontró el Tema ${temaId} en la base de datos (${errorTema?.message || 'Inexistente'}).` },
         { status: 404 }
       );
     }
@@ -65,8 +74,8 @@ export async function POST(req: NextRequest) {
 
     const totalExistentes = preguntasExistentes?.length || 0;
 
-    // Si ya hay preguntas suficientes (>= 10) y no se solicita forzar generación adicional, devolver banco actual
-    if (!forzarGeneracion && totalExistentes >= 10) {
+    // Si ya hay preguntas suficientes (>= 6) y no se solicita forzar generación adicional, devolver banco actual
+    if (!forzarGeneracion && totalExistentes >= 6) {
       return NextResponse.json({
         ok: true,
         temaId,
@@ -77,19 +86,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Obtener o crear sección con contenido de temario
-    let { data: secciones } = await supabase
+    // 3. Obtener o verificar sección con contenido de temario
+    const { data: secciones } = await supabase
       .from('secciones_temario')
       .select('*')
       .eq('tema_id', temaId);
 
     let seccionPrincipal = secciones && secciones.length > 0 ? secciones[0] : null;
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json(
         {
-          error: 'Falta la variable GEMINI_API_KEY para generar preguntas con IA.',
+          error: 'Falta configurar GEMINI_API_KEY en las variables de entorno de Vercel/servidor.',
           preguntas: preguntasExistentes || [],
         },
         { status: 500 }
@@ -98,74 +107,20 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Si no hay sección o el texto es inferior a 400 caracteres, generar contenido estructurado primero
-    if (!seccionPrincipal || !seccionPrincipal.contenido_markdown || seccionPrincipal.contenido_markdown.length < 400) {
-      const promptGenerarTemario = `Actúa como Catedrático y Redactor Oficial del temario de Bomberos de la Comunidad de Madrid.
-Redacta el texto técnico y legislativo íntegro del Tema ${tema.id}: "${tema.titulo}" (Bloque: ${tema.bloque}).
-Incluye de forma rigurosa:
-- Articulado legal exacto, plazos, competencias y mayorías.
-- Normativa técnica (normas UNE, CTE DB-SI, RIPCI, ADR, UNE-EN según corresponda).
-- Fórmulas, valores de presión, caudales, temperaturas, unidades o distancias de seguridad.
-- Picos, carreteras, ríos o zonas de la CAM si es tema de territorio.
-
-Devuelve ÚNICAMENTE un JSON con:
-{
-  "contenido_markdown": "Texto estructurado en Markdown claro y exhaustivo...",
-  "datos_criticos": [
-    { "concepto": "Dato o plazo clave", "valor_exacto": "Cifra/Valor oficial", "trampa_habitual": "Confusión habitual" }
-  ]
-}`;
-
-      const resTemario = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: promptGenerarTemario,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      });
-
-      let parsedTemario = {
-        contenido_markdown: `## Tema ${tema.id}: ${tema.titulo}\nContenido oficial de estudio para Bomberos CAM.`,
-        datos_criticos: [],
-      };
-
-      try {
-        parsedTemario = JSON.parse(resTemario.text || '{}');
-      } catch (e) {
-        console.error('Error parseando temario generado:', e);
-      }
-
-      const { data: nuevaSeccion, error: errSec } = await supabase
-        .from('secciones_temario')
-        .insert({
-          tema_id: temaId,
-          epigrafe: `Contenido Oficial: ${tema.titulo}`,
-          contenido_markdown: parsedTemario.contenido_markdown,
-          datos_criticos: parsedTemario.datos_criticos || [],
-        })
-        .select()
-        .single();
-
-      if (!errSec && nuevaSeccion) {
-        seccionPrincipal = nuevaSeccion;
-      }
-    }
-
     // 4. Preparar filtro anti-duplicados exhaustivo
     const listaExclusion = preguntasExistentes && preguntasExistentes.length > 0
       ? preguntasExistentes
           .map(
             (p, idx) =>
               `${idx + 1}. ${p.enunciado}${
-                p.dato_clave_etiqueta ? ` [Dato: ${p.dato_clave_etiqueta}]` : ''
+                p.dato_clave_etiqueta ? ` [Dato clave: ${p.dato_clave_etiqueta}]` : ''
               }`
           )
           .join('\n')
       : 'Ninguna pregunta generada todavía en la base de datos para este tema.';
 
     const systemInstruction = `Actúa como Catedrático en Psicometría y Presidente del Tribunal Calificador de las oposiciones del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
-Tu objetivo es generar una batería exhaustiva de 12 a 15 preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas estrictamente en el texto del temario proporcionado.
+Tu objetivo es generar un lote ultrarrápido y concentrado de EXACTAMENTE 6 preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas en el temario oficial.
 
 REGLAS INQUEBRANTABLES:
 1. REGLA CRÍTICA DE NO DUPLICACIÓN:
@@ -181,8 +136,8 @@ Como la aplicación baraja aleatoriamente el orden de las 4 opciones, queda TERM
 3. ISOMORFISMO Y CONTROL DE SESGO DE LONGITUD:
 La opción correcta NO puede ser sistemáticamente la más larga ni la más detallada. Los 3 distractores deben tener exactamente la misma estructura gramatical, nivel de tecnicismo y longitud aproximada (en palabras) que la opción correcta.
 
-4. PROPORCIÓN DE ENUNCIADOS NEGATIVOS (25% - 30%):
-Entre una cuarta y una tercera parte de las preguntas deben buscar la opción falsa o incorrecta (ej.: "¿Cuál de las siguientes afirmaciones es INCORRECTA?", "Señale la opción que NO corresponde..."). Escribe siempre las palabras "NO", "INCORRECTA" o "EXCEPTO" en MAYÚSCULAS dentro del enunciado.
+4. ENUNCIADOS NEGATIVOS (1 o 2 de las 6 preguntas):
+Al menos 1 o 2 preguntas deben buscar la opción falsa o incorrecta (ej.: "¿Cuál de las siguientes afirmaciones es INCORRECTA?", "Señale la opción que NO corresponde..."). Escribe siempre las palabras "NO", "INCORRECTA" o "EXCEPTO" en MAYÚSCULAS dentro del enunciado.
 
 5. MATRIZ DE TRAMPAS BOMBEROS CAM:
 - Si es LEGISLATIVO: Intercambia órganos (Consejo de Gobierno vs Asamblea), plazos (hábiles vs naturales), verbos modales (deberá vs podrá), mayorías.
@@ -190,28 +145,41 @@ Entre una cuarta y una tercera parte de las preguntas deben buscar la opción fa
 - Si es TERRITORIO CAM: Márgenes de ríos (derecha vs izquierda), cotas de Guadarrama, red viaria (Principal, Secundaria, Local), INFOMA.
 
 6. CITA LITERAL EXACTA (cita_exacta):
-Extrae una subcadena LITERAL e IDÉNTICA (copia exacta de entre 8 y 22 palabras, SIN asteriscos ** ni almohadillas #) que exista dentro del texto del temario y demuestre la respuesta.
+Extrae una subcadena LITERAL e IDÉNTICA (copia exacta de entre 8 y 22 palabras, SIN asteriscos ** ni almohadillas #) que demuestre la respuesta.
 
 7. EXPLICACIÓN DEL PROFESOR (explicacion_profesor):
 Sé directo, quirúrgico y pedagógico. Cita el dato clave y desglosa en una línea la trampa de los distractores.`;
 
-    const textoTemario = seccionPrincipal?.contenido_markdown?.slice(0, 30000) || `Tema ${tema.id}: ${tema.titulo}`;
+    const textoBase = seccionPrincipal?.contenido_markdown
+      ? seccionPrincipal.contenido_markdown.slice(0, 18000)
+      : `Tema ${tema.id}: ${tema.titulo} (${tema.bloque}) del Cuerpo de Bomberos de la Comunidad de Madrid.`;
 
     const promptUser = `TEMA NÚMERO: ${tema.id} - ${tema.titulo} (Bloque: ${tema.bloque})
 
-TEXTO OFICIAL DEL TEMARIO:
-${textoTemario}
+TEXTO OFICIAL DISPONIBLE:
+${textoBase}
 
-Genera entre 12 y 15 preguntas NUEVAS que cumplan todas las reglas psicométricas y no repitan ninguna de las ya existentes.
-Devuelve ÚNICAMENTE un JSON con este formato exacto:
+Genera EXACTAMENTE 6 preguntas NUEVAS de nivel examen oficial que no repitan ninguna de las existentes.
+${
+  !seccionPrincipal || !seccionPrincipal.contenido_markdown || seccionPrincipal.contenido_markdown.length < 300
+    ? 'Además, incluye un resumen técnico denso y estructurado en "contenido_sintesis_markdown" para guardarlo como temario base de este tema.'
+    : ''
+}
+
+Devuelve ÚNICAMENTE un JSON válido con este formato:
 {
+  ${
+    !seccionPrincipal || !seccionPrincipal.contenido_markdown || seccionPrincipal.contenido_markdown.length < 300
+      ? '"contenido_sintesis_markdown": "Resumen técnico y normativo completo...",'
+      : ''
+  }
   "preguntas": [
     {
       "enunciado": "Enunciado riguroso de examen...",
       "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
       "respuesta_correcta": 0,
       "explicacion_profesor": "Por qué es correcta y trampa de las falsas...",
-      "cita_exacta": "Frase literal idéntica sin formato del texto...",
+      "cita_exacta": "Frase literal idéntica sin formato...",
       "dato_clave_etiqueta": "Plazo / Cifra / Norma"
     }
   ]
@@ -236,30 +204,53 @@ Devuelve ÚNICAMENTE un JSON con este formato exacto:
       cita_exacta: string;
       dato_clave_etiqueta?: string;
     }> = [];
+    let sintesisTemario: string | null = null;
 
     try {
       const parsed = JSON.parse(responseText);
       preguntasGeneradas = parsed.preguntas || [];
+      if (parsed.contenido_sintesis_markdown) {
+        sintesisTemario = parsed.contenido_sintesis_markdown;
+      }
     } catch {
       const match = responseText.match(/\{[\s\S]*\}/);
       if (match) {
         const parsed = JSON.parse(match[0]);
         preguntasGeneradas = parsed.preguntas || [];
+        if (parsed.contenido_sintesis_markdown) {
+          sintesisTemario = parsed.contenido_sintesis_markdown;
+        }
       }
     }
 
-    if (preguntasGeneradas.length === 0) {
+    if (!preguntasGeneradas || preguntasGeneradas.length === 0) {
       return NextResponse.json(
         {
-          error: 'No se pudieron generar preguntas válidas en esta iteración.',
+          error: 'Gemini no devolvió preguntas válidas en esta llamada.',
           preguntas: preguntasExistentes || [],
         },
         { status: 500 }
       );
     }
 
-    // 5. Mapear e insertar las nuevas preguntas en Supabase
-    const preguntasParaInsertar = preguntasGeneradas.map((p) => ({
+    // Si no había sección y Gemini generó la síntesis, guardarla en secciones_temario
+    if (!seccionPrincipal && sintesisTemario) {
+      const { data: nuevaSec } = await supabase
+        .from('secciones_temario')
+        .insert({
+          tema_id: temaId,
+          epigrafe: `Contenido Oficial: ${tema.titulo}`,
+          contenido_markdown: sintesisTemario,
+          datos_criticos: [],
+        })
+        .select()
+        .single();
+
+      if (nuevaSec) seccionPrincipal = nuevaSec;
+    }
+
+    // 5. Mapear e insertar el lote de 6 preguntas en Supabase
+    const preguntasParaInsertar = preguntasGeneradas.slice(0, 6).map((p) => ({
       tema_id: temaId,
       seccion_id: seccionPrincipal?.id || null,
       enunciado: p.enunciado.trim(),
@@ -281,17 +272,16 @@ Devuelve ÚNICAMENTE un JSON con este formato exacto:
       .select('id, enunciado, dato_clave_etiqueta, opciones, respuesta_correcta, explicacion_profesor, cita_exacta, caja_leitner, proxima_revision, fallos_totales, aciertos_consecutivos, ultima_vez_vista, seccion_id, tema_id');
 
     if (errorInsert) {
-      console.error('Error insertando nuevas preguntas en Supabase:', errorInsert);
+      console.error('Error insertando en Supabase preguntas:', errorInsert);
       return NextResponse.json(
         {
-          error: `Error guardando en Supabase: ${errorInsert.message}`,
+          error: `Error guardando en Supabase: ${errorInsert.message}. Revisa las políticas RLS.`,
           preguntasGeneradasEnMemoria: preguntasParaInsertar,
         },
         { status: 500 }
       );
     }
 
-    // Devolver lista combinada y actualizada del banco
     const totalActualizadas = [
       ...(preguntasExistentes || []),
       ...(insertadas || []),
@@ -303,11 +293,14 @@ Devuelve ÚNICAMENTE un JSON con este formato exacto:
       tema,
       preguntas: totalActualizadas,
       nuevasGeneradas: insertadas?.length || 0,
-      mensaje: `¡Se han generado y guardado ${insertadas?.length || 0} preguntas oficiales nuevas en el banco de Supabase!`,
+      mensaje: `¡Se han añadido +${insertadas?.length || 0} preguntas oficiales al banco de Supabase!`,
     });
   } catch (error: unknown) {
-    console.error('Error en /api/motor-tema:', error);
+    console.error('Error no controlado en /api/motor-tema:', error);
     const msg = error instanceof Error ? error.message : 'Error interno en el motor de temas.';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: `Error del servidor: ${msg}` },
+      { status: 500 }
+    );
   }
 }

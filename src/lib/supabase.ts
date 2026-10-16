@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Tema, SeccionTemario, Pregunta, ResultadoSRS } from './types';
+import { Tema, SeccionTemario, Pregunta, ResultadoSRS, SesionEstudio } from './types';
 import { TEMAS_CAM, MOCK_SECCIONES, MOCK_PREGUNTAS } from './mock-data';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -337,4 +337,134 @@ export async function guardarSeccionConPreguntas(
   }
 
   return { seccionId, totalPreguntas: preguntas.length };
+}
+
+const LOCAL_STORAGE_SESIONES_KEY = 'opostudyc_historial_sesiones';
+
+/**
+ * Guarda una sesión de estudio completada en Supabase y LocalStorage
+ */
+export async function guardarSesionEstudio(sesion: SesionEstudio): Promise<void> {
+  const sesionConId: SesionEstudio = {
+    ...sesion,
+    id: sesion.id || `ses-${Date.now()}`,
+    created_at: sesion.created_at || new Date().toISOString(),
+  };
+
+  // 1. Guardar en LocalStorage (inmediatez y offline)
+  if (typeof window !== 'undefined') {
+    try {
+      const prevRaw = localStorage.getItem(LOCAL_STORAGE_SESIONES_KEY);
+      const prev: SesionEstudio[] = prevRaw ? JSON.parse(prevRaw) : [];
+      const actualizadas = [sesionConId, ...prev].slice(0, 100);
+      localStorage.setItem(LOCAL_STORAGE_SESIONES_KEY, JSON.stringify(actualizadas));
+    } catch (e) {
+      console.warn('Error guardando sesión en localStorage:', e);
+    }
+  }
+
+  // 2. Guardar en Supabase si hay usuario autenticado
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('historial_sesiones').insert({
+          user_id: user.id,
+          fecha: sesionConId.fecha,
+          tipo_sesion: sesionConId.tipo_sesion,
+          tema_id: sesionConId.tema_id || null,
+          titulo_sesion: sesionConId.titulo_sesion,
+          preguntas_respondidas: sesionConId.preguntas_respondidas,
+          aciertos: sesionConId.aciertos,
+          dudas: sesionConId.dudas || 0,
+          fallos: sesionConId.fallos,
+        });
+      }
+    } catch (e) {
+      console.warn('Aviso guardando sesión en Supabase historial_sesiones:', e);
+    }
+  }
+}
+
+/**
+ * Obtiene el historial de sesiones completadas
+ */
+export async function getHistorialSesiones(): Promise<SesionEstudio[]> {
+  // 1. Intentar desde Supabase si hay usuario
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('historial_sesiones')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(60);
+
+        if (!error && data && data.length > 0) {
+          return data as SesionEstudio[];
+        }
+      }
+    } catch (e) {
+      console.warn('Aviso consultando historial_sesiones en Supabase:', e);
+    }
+  }
+
+  // 2. Fallback a LocalStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_SESIONES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as SesionEstudio[];
+      }
+    } catch (e) {
+      console.warn('Error leyendo sesiones de localStorage:', e);
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Calcula los días de racha consecutivos reales basados en fechas de sesiones
+ */
+export function calcularRachaDias(sesiones: SesionEstudio[]): number {
+  if (!sesiones || sesiones.length === 0) return 0;
+
+  // Extraer fechas únicas en formato YYYY-MM-DD
+  const fechasUnicas = new Set<string>();
+  sesiones.forEach((s) => {
+    if (s.fecha) {
+      fechasUnicas.add(s.fecha.slice(0, 10));
+    } else if (s.created_at) {
+      fechasUnicas.add(s.created_at.slice(0, 10));
+    }
+  });
+
+  const hoy = new Date();
+  const formatFecha = (d: Date) => d.toISOString().slice(0, 10);
+
+  const hoyStr = formatFecha(hoy);
+  const ayer = new Date(hoy.getTime() - 86400000);
+  const ayerStr = formatFecha(ayer);
+
+  // Si no se entrenó hoy ni ayer, la racha es 0
+  const entrenoHoy = fechasUnicas.has(hoyStr);
+  const entrenoAyer = fechasUnicas.has(ayerStr);
+
+  if (!entrenoHoy && !entrenoAyer) {
+    return 0;
+  }
+
+  let racha = 0;
+  let cursor = entrenoHoy ? hoy : ayer;
+
+  while (fechasUnicas.has(formatFecha(cursor))) {
+    racha++;
+    cursor = new Date(cursor.getTime() - 86400000);
+  }
+
+  return racha;
 }

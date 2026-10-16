@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Flame, BookOpen, Zap, UploadCloud } from 'lucide-react';
 
-export default function BottomNav() {
+interface BottomNavProps {
+  badgeRepaso?: number;
+}
+
+export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
   const pathname = usePathname();
 
   const navItems = [
@@ -19,7 +23,7 @@ export default function BottomNav() {
       label: 'Repaso SRS',
       icon: Flame,
       active: pathname.startsWith('/jugar') && !pathname.includes('modo=fallos'),
-      badge: '15',
+      badge: badgeRepaso && badgeRepaso > 0 ? String(badgeRepaso) : undefined,
     },
     {
       href: '/chuleta',

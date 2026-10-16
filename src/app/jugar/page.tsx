@@ -25,7 +25,7 @@ import {
   calcularSRS,
   obtenerEtiquetaCaja,
 } from '@/lib/srs';
-import { getPreguntas, getSecciones, getTemas, actualizarPreguntaSRS, solicitarGeneracionMotorTema } from '@/lib/supabase';
+import { getPreguntas, getSecciones, getTemas, actualizarPreguntaSRS, solicitarGeneracionMotorTema, guardarSesionEstudio } from '@/lib/supabase';
 import TemarioDrawer from '@/components/TemarioDrawer';
 
 function TestGameContent() {
@@ -79,23 +79,7 @@ function TestGameContent() {
 
         if (modo === 'tema' && temaId) {
           // 1. Consultar preguntas específicas del tema en el banco de Supabase
-          let preguntasTema = await getPreguntas(temaId);
-
-          // Si hay 0 preguntas para este tema, activar el motor automático con el Tribunal IA
-          if (preguntasTema.length === 0) {
-            setGenerandoMotor(true);
-            setMensajeMotor(
-              `🔥 El Tribunal IA está preparando y guardando en base de datos el primer bloque de preguntas oficiales del Tema ${temaId}...`
-            );
-            const resMotor = await solicitarGeneracionMotorTema(temaId, false);
-            setGenerandoMotor(false);
-
-            if (resMotor.ok && resMotor.preguntas.length > 0) {
-              preguntasTema = resMotor.preguntas;
-            } else {
-              setErrorMotor(resMotor.error || 'No se pudieron generar preguntas para este tema.');
-            }
-          }
+          const preguntasTema = await getPreguntas(temaId);
 
           if (preguntasTema.length > 0) {
             const seleccionadas = seleccionarMixTribunal(preguntasTema, 15, temaId);
@@ -105,6 +89,7 @@ function TestGameContent() {
                 : preguntasTema.slice(0, 15).map(barajarOpciones)
             );
           } else {
+            // 0 preguntas para este tema: mostramos la tarjeta táctica para generar primera tanda
             setPreguntasRonda([]);
           }
         } else if (modo === 'fallos') {
@@ -218,7 +203,7 @@ function TestGameContent() {
       setRondaTerminada(true);
       const total = preguntasRonda.length;
       const aciertos = estadisticasRonda.aciertosSeguros + estadisticasRonda.aciertosDuda;
-      if (aciertos / total >= 0.7) {
+      if (aciertos / (total || 1) >= 0.7) {
         confetti({
           particleCount: 80,
           spread: 70,
@@ -226,15 +211,34 @@ function TestGameContent() {
           colors: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'],
         });
       }
+
+      // Guardar sesión en el Diario de Estudio e Historial
+      const nombreSesion = temaId && temaActual
+        ? `Tema ${temaActual.id}: ${temaActual.titulo}`
+        : modo === 'fallos'
+        ? 'Refuerzo Cazador de Fallos'
+        : 'Sesión de Repaso SRS General';
+
+      guardarSesionEstudio({
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo_sesion: (modo as 'tema' | 'repaso_srs' | 'fallos') || 'tema',
+        tema_id: temaId || null,
+        titulo_sesion: nombreSesion,
+        preguntas_respondidas: total,
+        aciertos: estadisticasRonda.aciertosSeguros,
+        dudas: estadisticasRonda.aciertosDuda,
+        fallos: estadisticasRonda.fallos,
+      });
     }
   };
 
-  // Solicitar +15 preguntas nuevas para este tema al motor con deduplicación
-  const handleExprimirNuevasPreguntas = async () => {
+  // Solicitar tanda de preguntas (+6 nuevas) para este tema al motor con deduplicación
+  const handleGenerarPreguntas = async (forzar: boolean = true) => {
     if (!temaId) return;
     setGenerandoNuevas(true);
+    setErrorMotor(null);
     try {
-      const res = await solicitarGeneracionMotorTema(temaId, true);
+      const res = await solicitarGeneracionMotorTema(temaId, forzar);
       if (res.ok && res.preguntas.length > 0) {
         const filtradas = res.preguntas.filter((p) => p.tema_id === temaId);
         const seleccionadas = seleccionarMixTribunal(filtradas, 15, temaId);
@@ -250,11 +254,15 @@ function TestGameContent() {
         setRondaTerminada(false);
         setEstadisticasRonda({ aciertosSeguros: 0, aciertosDuda: 0, fallos: 0 });
       } else {
-        alert(res.error || 'No se pudieron generar más preguntas en este momento.');
+        const errText = res.error || 'No se pudieron generar más preguntas en este momento.';
+        setErrorMotor(errText);
+        alert(errText);
       }
     } catch (err) {
       console.error(err);
-      alert('Error de conexión con el motor de temas.');
+      const errText = 'Error de conexión con el motor de temas.';
+      setErrorMotor(errText);
+      alert(errText);
     } finally {
       setGenerandoNuevas(false);
     }
@@ -392,19 +400,19 @@ function TestGameContent() {
           {/* Botón acumulativo anti-duplicados */}
           {temaId && (
             <button
-              onClick={handleExprimirNuevasPreguntas}
+              onClick={() => handleGenerarPreguntas(true)}
               disabled={generandoNuevas}
               className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               {generandoNuevas ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Ampliando banco con Tribunal IA...</span>
+                  <span>Ampliando banco con Tribunal IA (+6)...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>⚡ Exprimir +15 preguntas nuevas de este tema</span>
+                  <span>⚡ Generar +6 preguntas nuevas con IA</span>
                 </>
               )}
             </button>
@@ -429,38 +437,50 @@ function TestGameContent() {
     );
   }
 
-  // ESTADO 3: TEMA SIN PREGUNTAS (CON BOTÓN DE GENERACIÓN DIRECTA)
+  // ESTADO 3: TEMA SIN PREGUNTAS (TARJETA CLARA CON TÍTULO REAL Y BOTÓN DE GENERACIÓN)
   if (!preguntaActual) {
+    const temaInfo = temaActual || (temaId ? temas.find((t) => t.id === temaId) : null);
+
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
-          <BookOpen className="w-6 h-6" />
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4 animate-fadeIn">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
+          <BookOpen className="w-7 h-7" />
         </div>
-        <div>
-          <h2 className="text-base font-bold text-slate-900">
-            {temaId ? `Tema ${temaId}: Banco de preguntas pendiente` : 'No hay preguntas disponibles'}
+        <div className="space-y-1">
+          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+            {temaInfo?.bloque || 'Temario Oficial Bomberos CAM'}
+          </span>
+          <h2 className="text-base font-bold text-slate-900 pt-1">
+            {temaInfo ? `Tema ${temaInfo.id}: ${temaInfo.titulo}` : 'No hay preguntas disponibles'}
           </h2>
-          <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+          <p className="text-xs text-slate-500 max-w-xs mx-auto">
             {errorMotor ||
-              'Este tema aún no tiene preguntas generadas en la base de datos compartida.'}
+              'Este tema aún no tiene preguntas generadas en el banco compartido de Supabase.'}
           </p>
         </div>
 
+        {errorMotor && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 text-left w-full">
+            <span className="font-bold block">Aviso del servidor:</span>
+            <span>{errorMotor}</span>
+          </div>
+        )}
+
         {temaId ? (
           <button
-            onClick={handleExprimirNuevasPreguntas}
+            onClick={() => handleGenerarPreguntas(false)}
             disabled={generandoNuevas}
             className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
             {generandoNuevas ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Generando con Tribunal IA...</span>
+                <span>Generando lote oficial de 6 preguntas...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>⚡ Generar primer bloque de 15 preguntas oficiales</span>
+                <span>🔥 Generar primera tanda de preguntas oficiales del Tema {temaId}</span>
               </>
             )}
           </button>

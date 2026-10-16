@@ -76,3 +76,17 @@ export interface EstadisticasGlobales {
   rachaDias: number;
   falladasHistoricas: number;
 }
+
+export interface SesionEstudio {
+  id?: string;
+  user_id?: string;
+  fecha: string; // YYYY-MM-DD
+  created_at?: string;
+  tipo_sesion: 'tema' | 'repaso_srs' | 'fallos';
+  tema_id?: number | null;
+  titulo_sesion: string;
+  preguntas_respondidas: number;
+  aciertos: number;
+  dudas?: number;
+  fallos: number;
+}

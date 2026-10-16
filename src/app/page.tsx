@@ -141,15 +141,19 @@ export default function DashboardPrincipal() {
       {/* 1. CABECERA TÁCTICA MOBILE-FIRST */}
       <header className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-950/60 font-black text-white text-base">
-            35
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="OpostudyC Logo"
+            className="w-10 h-10 rounded-xl object-contain bg-[#182029] p-0.5 border border-zinc-800/80 shadow-md shadow-black/50"
+          />
           <div>
-            <h1 className="text-base font-black text-zinc-100 tracking-tight leading-none">
-              OpostudyC
+            <h1 className="text-base font-black text-zinc-100 tracking-tight leading-none flex items-center">
+              <span>Opostudy</span>
+              <span className="text-[#6c8e9f]">C</span>
             </h1>
             <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
-              35 Temas · Reconocimiento Activo & SRS
+              35 Temas · Bomberos CAM
             </p>
           </div>
         </div>

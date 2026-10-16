@@ -23,8 +23,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'OpostudyC',
+  title: 'OpostudyC - Bomberos CAM',
   description: 'Entrenamiento táctico contra la curva del olvido para los 35 temas oficiales de Bombero de la Comunidad de Madrid.',
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

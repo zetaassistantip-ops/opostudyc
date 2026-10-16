@@ -81,18 +81,18 @@ export default function ModalSimulacroConfig({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl border-2 border-slate-900 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
         {/* Cabecera */}
-        <header className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+        <header className="p-4 sm:p-5 border-b-2 border-slate-900 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-700 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 border-2 border-slate-900 flex items-center justify-center text-violet-700 shadow-2xs">
               <Target className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 leading-tight">
                 Simulacro / Test General
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
                 Batería aleatoria multitema de examen oficial
               </p>
             </div>
@@ -100,7 +100,7 @@ export default function ModalSimulacroConfig({
 
           <button
             onClick={onCerrar}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-900 flex items-center justify-center text-slate-700 transition-colors cursor-pointer"
             aria-label="Cerrar"
           >
             <X className="w-4 h-4" />
@@ -111,7 +111,7 @@ export default function ModalSimulacroConfig({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* 1. Selector de Ámbito */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+            <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
               1. Ámbito de temas del examen
             </label>
 
@@ -119,10 +119,10 @@ export default function ModalSimulacroConfig({
               <button
                 type="button"
                 onClick={() => handleCambiarAmbito('todos')}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   tipoAmbito === 'todos'
-                    ? 'bg-violet-50 border-violet-300 ring-2 ring-violet-500/20 shadow-xs'
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
+                    ? 'bg-violet-50 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a]'
+                    : 'bg-white border-slate-900 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -130,10 +130,10 @@ export default function ModalSimulacroConfig({
                     Todos los Temas
                   </span>
                   {tipoAmbito === 'todos' && (
-                    <CheckCircle2 className="w-4 h-4 text-violet-600" />
+                    <CheckCircle2 className="w-4 h-4 text-violet-700" />
                   )}
                 </div>
-                <span className="text-[11px] text-slate-500 mt-1">
+                <span className="text-[11px] text-slate-600 font-mono mt-1">
                   Examen Global (35 temas)
                 </span>
               </button>
@@ -141,10 +141,10 @@ export default function ModalSimulacroConfig({
               <button
                 type="button"
                 onClick={() => handleCambiarAmbito('personalizado')}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   tipoAmbito === 'personalizado'
-                    ? 'bg-violet-50 border-violet-300 ring-2 ring-violet-500/20 shadow-xs'
-                    : 'bg-white border-slate-200 hover:bg-slate-50'
+                    ? 'bg-violet-50 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a]'
+                    : 'bg-white border-slate-900 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -152,10 +152,10 @@ export default function ModalSimulacroConfig({
                     Temas Específicos
                   </span>
                   {tipoAmbito === 'personalizado' && (
-                    <CheckCircle2 className="w-4 h-4 text-violet-600" />
+                    <CheckCircle2 className="w-4 h-4 text-violet-700" />
                   )}
                 </div>
-                <span className="text-[11px] text-slate-500 mt-1">
+                <span className="text-[11px] text-slate-600 font-mono mt-1">
                   {temasSeleccionados.length} seleccionados
                 </span>
               </button>
@@ -248,10 +248,10 @@ export default function ModalSimulacroConfig({
                   key={num}
                   type="button"
                   onClick={() => setLimitePreguntas(num)}
-                  className={`py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  className={`py-2.5 rounded-lg text-xs font-mono font-bold transition-transform duration-75 cursor-pointer border-2 border-slate-900 ${
                     limitePreguntas === num
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-slate-900 text-white shadow-[2px_2px_0px_0px_#0f172a]'
+                      : 'bg-white text-slate-800 hover:bg-slate-100 active:translate-x-[1px] active:translate-y-[1px]'
                   }`}
                 >
                   {num} pregs
@@ -262,11 +262,11 @@ export default function ModalSimulacroConfig({
         </div>
 
         {/* Footer con botón CTA */}
-        <footer className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/50">
+        <footer className="p-4 sm:p-5 border-t-2 border-slate-900 bg-slate-50/50">
           <button
             onClick={handleEmpezarSimulacro}
             disabled={!puedeEmpezar}
-            className="w-full py-3.5 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 bg-violet-600 hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-transform duration-75 border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>🚀 Empezar Test General ({limitePreguntas} preguntas)</span>
             <ChevronRight className="w-4 h-4" />

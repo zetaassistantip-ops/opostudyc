@@ -605,7 +605,7 @@ function TestGameContent() {
       {/* 2. ZONA CENTRAL: ENUNCIADO Y OPCIONES */}
       <main className="my-auto py-3 space-y-3 flex-1 flex flex-col justify-center">
         {/* ENUNCIADO */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+        <div className="p-4 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a]">
           <p className="text-sm font-bold text-slate-900 leading-snug">
             {preguntaActual.enunciado}
           </p>
@@ -614,13 +614,13 @@ function TestGameContent() {
         {/* TOGGLE PREVIO "CON DUDA" */}
         {!haRespondido && (
           <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] text-slate-500 font-medium">¿Dudas de la respuesta?</span>
+            <span className="text-[11px] text-slate-600 font-medium">¿Dudas de la respuesta?</span>
             <button
               onClick={() => setMarcarConDudaPrevia(!marcarConDudaPrevia)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border-2 ${
                 marcarConDudaPrevia
-                  ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'bg-amber-100 border-slate-900 text-slate-900 shadow-[2px_2px_0px_0px_#0f172a] font-bold'
+                  : 'bg-white border-slate-900 text-slate-700 hover:bg-slate-50 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
@@ -637,23 +637,26 @@ function TestGameContent() {
             const esLaCorrecta = opcion.indiceOriginal === preguntaActual.respuesta_correcta;
             const esLaSeleccionada = opcion.indiceOriginal === opcionSeleccionadaOriginal;
 
-            // Estilos dinámicos según estado de corrección
-            let botonClases = 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-800 shadow-2xs active:scale-[0.99]';
-            let badgeLetraClases = 'bg-slate-100 text-slate-600 border-slate-200';
+            // Estilos dinámicos según estado de corrección (Neo-Brutalismo Deportivo)
+            let botonClases =
+              'bg-white hover:bg-slate-50 border-2 border-slate-900 text-slate-900 shadow-[3px_3px_0px_0px_#0f172a] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-transform duration-75';
+            let badgeLetraClases = 'bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-bold';
 
             if (haRespondido) {
               if (esLaCorrecta) {
                 // Correcta
-                botonClases = 'bg-emerald-50 border-emerald-400 text-emerald-950 font-semibold ring-1 ring-emerald-400 shadow-2xs';
-                badgeLetraClases = 'bg-emerald-600 text-white border-emerald-500';
+                botonClases =
+                  'bg-emerald-50 border-2 border-emerald-700 text-emerald-950 font-semibold shadow-[3px_3px_0px_0px_#047857]';
+                badgeLetraClases = 'bg-emerald-700 text-white border-2 border-emerald-800 font-mono font-bold';
               } else if (esLaSeleccionada) {
                 // Marcó incorrecta
-                botonClases = 'bg-rose-50 border-rose-400 text-rose-950 ring-1 ring-rose-400 shadow-2xs';
-                badgeLetraClases = 'bg-rose-600 text-white border-rose-500';
+                botonClases =
+                  'bg-red-50 border-2 border-red-700 text-red-950 font-semibold shadow-[3px_3px_0px_0px_#b91c1c]';
+                badgeLetraClases = 'bg-red-700 text-white border-2 border-red-800 font-mono font-bold';
               } else {
                 // Otras no marcadas
-                botonClases = 'bg-slate-50 border-slate-200/60 text-slate-400 opacity-60';
-                badgeLetraClases = 'bg-slate-100 text-slate-400 border-slate-200';
+                botonClases = 'bg-slate-50 border-2 border-slate-300 text-slate-400 opacity-60';
+                badgeLetraClases = 'bg-slate-100 text-slate-400 border border-slate-300 font-mono';
               }
             }
 
@@ -662,7 +665,7 @@ function TestGameContent() {
                 key={index}
                 onClick={() => handleSeleccionarOpcion(opcion.indiceOriginal)}
                 disabled={haRespondido}
-                className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 ${botonClases}`}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${botonClases}`}
               >
                 <span
                   className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 border mt-0.5 ${badgeLetraClases}`}
@@ -689,27 +692,27 @@ function TestGameContent() {
         <section className="space-y-2.5 pt-2 flex-shrink-0 animate-slideUp">
           {/* Si acertó: Selector de Certeza */}
           {opcionSeleccionadaOriginal === preguntaActual.respuesta_correcta && (
-            <div className="p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-between gap-2 shadow-2xs">
-              <span className="text-[11px] text-slate-600 font-semibold pl-1">
+            <div className="p-3 rounded-xl bg-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] flex items-center justify-between gap-2">
+              <span className="text-[11px] text-slate-700 font-bold pl-1">
                 ¿Cómo acertaste?
               </span>
               <div className="flex gap-1.5">
                 <button
                   onClick={() => cambiarCertezaAcierto('acierto_seguro')}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-2 ${
                     evaluacionSRS === 'acierto_seguro'
-                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
-                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-emerald-600 border-slate-900 text-white shadow-[2px_2px_0px_0px_#0f172a]'
+                      : 'bg-slate-100 border-slate-900 text-slate-900 hover:bg-slate-200'
                   }`}
                 >
                   100% Seguro
                 </button>
                 <button
                   onClick={() => cambiarCertezaAcierto('acierto_duda')}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-2 ${
                     evaluacionSRS === 'acierto_duda'
-                      ? 'bg-amber-600 border-amber-600 text-white shadow-2xs'
-                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-amber-500 border-slate-900 text-slate-950 shadow-[2px_2px_0px_0px_#0f172a]'
+                      : 'bg-slate-100 border-slate-900 text-slate-900 hover:bg-slate-200'
                   }`}
                 >
                   Con Duda
@@ -719,12 +722,12 @@ function TestGameContent() {
           )}
 
           {/* Tarjeta del Profesor */}
-          <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs space-y-1.5 shadow-2xs">
-            <div className="flex items-center justify-between text-slate-800 font-bold">
+          <div className="p-3.5 rounded-xl bg-slate-100 border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-xs space-y-1.5">
+            <div className="flex items-center justify-between text-slate-900 font-bold">
               <span className="flex items-center gap-1.5 text-slate-900 font-bold">
                 Explicación Técnica:
               </span>
-              <span className="text-[11px] text-slate-500 font-mono font-medium">
+              <span className="text-[11px] text-slate-600 font-mono font-bold">
                 {evaluacionSRS === 'fallo'
                   ? 'Repaso en 10 min'
                   : evaluacionSRS === 'acierto_duda'
@@ -732,7 +735,7 @@ function TestGameContent() {
                   : 'Sube de Caja Leitner'}
               </span>
             </div>
-            <p className="text-slate-700 leading-relaxed text-[12px]">
+            <p className="text-slate-800 leading-relaxed text-[12px]">
               {preguntaActual.explicacion_profesor}
             </p>
           </div>
@@ -740,16 +743,16 @@ function TestGameContent() {
           {/* BOTÓN ESTRELLA: VER PUNTO EXACTO EN EL TEMARIO */}
           <button
             onClick={() => setDrawerAbierto(true)}
-            className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/90 border border-amber-300 text-amber-950 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-2xs"
+            className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/90 border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-slate-900 transition-transform duration-75 flex items-center justify-center gap-2 text-xs font-bold cursor-pointer"
           >
-            <BookOpen className="w-4 h-4 text-amber-600" />
+            <BookOpen className="w-4 h-4 text-amber-700" />
             <span>Consultar cita oficial en el Temario</span>
           </button>
 
           {/* Botón Siguiente Pregunta */}
           <button
             onClick={handleSiguiente}
-            className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none text-white font-bold text-sm rounded-xl transition-all border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>
               {indiceActual + 1 < preguntasRonda.length

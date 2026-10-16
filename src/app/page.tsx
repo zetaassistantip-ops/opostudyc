@@ -166,7 +166,7 @@ export default function DashboardPrincipal() {
           <BotonInstalarApp />
           <button
             onClick={() => setModalRachaAbierto(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100/90 active:scale-95 border border-amber-200/80 text-amber-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-slate-900 text-xs font-mono font-bold transition-all cursor-pointer"
             title="Ver diario y racha de estudio"
           >
             <Flame className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
@@ -177,18 +177,18 @@ export default function DashboardPrincipal() {
       </header>
 
       {/* 2. PANEL DE PROGRESO Y RETENCIÓN */}
-      <section className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-3 relative">
+      <section className="p-4 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] space-y-3 relative">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500 flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-red-600" />
               Retención Global del Temario
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 tracking-tight">
+              <span className="text-3xl font-black font-mono text-slate-900 tracking-tight">
                 {stats.porcentajeDominio}%
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs font-mono text-slate-500 font-medium">
                 ({stats.dominadas + stats.asentadas} afianzadas de {stats.totalPreguntas})
               </span>
             </div>
@@ -196,16 +196,16 @@ export default function DashboardPrincipal() {
 
           {/* Badge de repaso programado */}
           <div className="text-right">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 border border-slate-900 text-red-700 text-xs font-mono font-bold">
               <Flame className="w-3.5 h-3.5 fill-red-600 text-red-600" />
               <span>{stats.enLlamasHoy} para repasar</span>
             </div>
-            <span className="block text-[10px] text-slate-400 mt-1">Repaso espaciado</span>
+            <span className="block text-[10px] text-slate-500 font-mono mt-1">Repaso espaciado</span>
           </div>
         </div>
 
         {/* Barra de progreso global */}
-        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 flex">
+        <div className="w-full h-2.5 bg-slate-100 rounded-lg overflow-hidden border border-slate-900 flex">
           <div
             title="Dominadas (Caja 4-5)"
             className="bg-emerald-500 h-full transition-all duration-500"
@@ -229,29 +229,29 @@ export default function DashboardPrincipal() {
         </div>
 
         {/* Mini leyenda limpia */}
-        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+        <div className="flex items-center justify-between text-[10px] text-slate-600 pt-0.5 font-medium">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Dominadas
+            <span className="w-2 h-2 rounded-sm bg-emerald-500 border border-slate-900" /> Dominadas
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-sky-500" /> Asentadas
+            <span className="w-2 h-2 rounded-sm bg-sky-500 border border-slate-900" /> Asentadas
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400" /> En repaso
+            <span className="w-2 h-2 rounded-sm bg-amber-400 border border-slate-900" /> En repaso
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-slate-300" /> Nuevas
+            <span className="w-2 h-2 rounded-sm bg-slate-300 border border-slate-900" /> Nuevas
           </span>
         </div>
       </section>
 
-      {/* 3. BOTÓN DE ACCIÓN RÁPIDA: REPASO DEL DÍA */}
+      {/* 3. BOTÓN DE ACCIÓN RÁPIDA: REPASO DEL DÍA (Neo-Brutalist Red Hard Shadow) */}
       <Link
         href="/jugar?modo=repaso"
-        className="w-full p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] transition-all shadow-sm flex items-center justify-between text-white group"
+        className="w-full p-4 rounded-xl bg-slate-950 hover:bg-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all border-2 border-slate-950 shadow-[4px_4px_0px_0px_#dc2626] flex items-center justify-between text-white group cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-red-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+          <div className="w-11 h-11 rounded-lg bg-red-600 border border-white/20 flex items-center justify-center flex-shrink-0 shadow-xs">
             <Flame className="w-6 h-6 text-white fill-white" />
           </div>
           <div className="text-left">
@@ -273,16 +273,16 @@ export default function DashboardPrincipal() {
       <button
         type="button"
         onClick={() => setModalSimulacroAbierto(true)}
-        className="w-full p-4 rounded-2xl bg-gradient-to-r from-violet-950 via-slate-900 to-slate-900 hover:from-violet-900 hover:to-slate-800 active:scale-[0.99] transition-all shadow-sm flex items-center justify-between text-white group border border-violet-900/40 cursor-pointer"
+        className="w-full p-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-between text-white group cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-violet-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+          <div className="w-11 h-11 rounded-lg bg-violet-600 border border-white/20 flex items-center justify-center flex-shrink-0 shadow-xs">
             <Target className="w-6 h-6 text-white" />
           </div>
           <div className="text-left">
             <div className="text-[11px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
               <span>Simulacro de Examen</span>
-              <span className="px-1.5 py-0.2 rounded bg-violet-800/60 text-violet-200 text-[10px]">Multitema</span>
+              <span className="px-1.5 py-0.2 rounded bg-violet-800/80 text-violet-200 text-[10px] font-mono">Multitema</span>
             </div>
             <div className="text-base font-bold tracking-tight text-white">
               🎯 Test General / Simulacro
@@ -300,13 +300,13 @@ export default function DashboardPrincipal() {
         {/* Cazador de Fallos */}
         <Link
           href="/jugar?modo=fallos"
-          className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 active:scale-[0.98] transition-all flex flex-col justify-between space-y-2.5 shadow-xs group"
+          className="p-3.5 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] hover:border-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex flex-col justify-between space-y-2.5 group cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-100">
+            <div className="p-2 rounded-lg bg-red-50 text-red-600 border border-slate-900">
               <Skull className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-900 border border-slate-900">
               {stats.falladasHistoricas} dudas / fallos
             </span>
           </div>
@@ -323,13 +323,13 @@ export default function DashboardPrincipal() {
         {/* Chuleta Express */}
         <Link
           href="/chuleta"
-          className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 active:scale-[0.98] transition-all flex flex-col justify-between space-y-2.5 shadow-xs group"
+          className="p-3.5 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] hover:border-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex flex-col justify-between space-y-2.5 group cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+            <div className="p-2 rounded-lg bg-amber-50 text-amber-600 border border-slate-900">
               <Zap className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-900 border border-slate-900">
               Fichas clave
             </span>
           </div>
@@ -348,12 +348,12 @@ export default function DashboardPrincipal() {
       <section className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-slate-700" />
+            <BookOpen className="w-4 h-4 text-slate-900" />
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               Temario Oficial
             </h2>
           </div>
-          <span className="text-xs text-slate-500 font-mono font-semibold">
+          <span className="text-xs text-slate-900 font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 border border-slate-900">
             {temasFiltrados.length} / 35 temas
           </span>
         </div>
@@ -366,7 +366,7 @@ export default function DashboardPrincipal() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar tema (ej. Hidráulica, PLATERCAM, CTE, Gas)..."
-            className="w-full bg-white border border-slate-200/90 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-400 focus:ring-1 focus:ring-slate-300 shadow-2xs transition-all"
+            className="w-full bg-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-slate-900 transition-all font-medium"
           />
         </div>
 
@@ -377,20 +377,20 @@ export default function DashboardPrincipal() {
             return (
               <div
                 key={tema.id}
-                className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all flex items-center justify-between gap-3 shadow-2xs"
+                className="p-3.5 rounded-xl bg-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] transition-all flex items-center justify-between gap-3"
               >
                 {/* ID del tema */}
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono border border-slate-900">
                   {tema.id}
                 </div>
 
                 {/* Título y barra de progreso */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
-                    <span className="font-semibold text-slate-500 truncate pr-1">
+                    <span className="font-semibold text-slate-600 truncate pr-1">
                       {tema.bloque}
                     </span>
-                    <span className="font-mono text-slate-600 font-medium">{dataTema.porcentaje}% retención</span>
+                    <span className="font-mono text-slate-900 font-bold">{dataTema.porcentaje}% retención</span>
                   </div>
 
                   <h3 className="text-xs font-semibold text-slate-900 truncate leading-snug">
@@ -398,7 +398,7 @@ export default function DashboardPrincipal() {
                   </h3>
 
                   {/* Micro barra de progreso */}
-                  <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5 border border-slate-900/40">
                     <div
                       className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
                       style={{ width: `${dataTema.porcentaje}%` }}
@@ -409,7 +409,7 @@ export default function DashboardPrincipal() {
                 {/* Botón Entrenar Tema */}
                 <Link
                   href={`/jugar?modo=tema&temaId=${tema.id}`}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 hover:text-white active:scale-95 text-slate-700 text-[11px] font-bold transition-all flex items-center gap-1 flex-shrink-0"
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-slate-900 text-[11px] font-mono font-bold transition-all flex items-center gap-1 flex-shrink-0 cursor-pointer"
                   title={`Test Tema ${tema.id}`}
                 >
                   <span>Test</span>
@@ -422,14 +422,14 @@ export default function DashboardPrincipal() {
       </section>
 
       {/* 6. BANNER BANCO COMPARTIDO SRS */}
-      <section className="p-4 rounded-2xl bg-white border border-slate-200/90 text-xs flex items-center justify-between gap-3 shadow-2xs">
+      <section className="p-4 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] text-xs flex items-center justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0 mt-0.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-50 border border-slate-900 flex items-center justify-center text-amber-600 flex-shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
             <span className="font-bold text-slate-900 block">Banco Compartido Autónomo</span>
-            <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+            <span className="text-[11px] text-slate-600 leading-relaxed block mt-0.5">
               Al entrar a cada tema, el Tribunal IA amplía las preguntas automáticamente en la nube sin duplicados. Tu progreso SRS se guarda de forma privada e individual.
             </span>
           </div>

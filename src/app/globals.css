@@ -1,15 +1,23 @@
 @import "tailwindcss";
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --font-sans: var(--font-sans), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
 body {
   background-color: #f8fafc;
   color: #0f172a;
+  font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  overflow-x: hidden;
 }
 
 /* Scrollbar estilizada y discreta */
@@ -28,6 +36,34 @@ body {
   background: #94a3b8;
 }
 
+/* UTILIDADES NEO-BRUTALISTAS DEPORTIVAS (HIGH-CONTRAST ATHLETIC UI) */
+.nb-card {
+  border: 2px solid #0f172a;
+  box-shadow: 3px 3px 0px 0px #0f172a;
+}
+
+.nb-card-dark {
+  border: 2px solid #020617;
+  box-shadow: 4px 4px 0px 0px #dc2626;
+}
+
+.nb-btn {
+  border: 2px solid #0f172a;
+  box-shadow: 3px 3px 0px 0px #0f172a;
+  transition: transform 75ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 75ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nb-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px 0px #0f172a;
+}
+
+.nb-badge {
+  border: 1.5px solid #0f172a;
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+}
+
 /* Resaltado de estudio para la cita exacta en el Temario */
 mark.cita-destacada {
   background-color: #fef08a;
@@ -40,3 +76,4 @@ mark.cita-destacada {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+

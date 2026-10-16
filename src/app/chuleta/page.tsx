@@ -477,32 +477,32 @@ function ChuletaContent() {
               <div
                 key={item.id}
                 onClick={() => handleToggleRevelarFicha(item.id)}
-                className={`p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2.5 transition-all group ${
-                  modoOculto ? 'cursor-pointer hover:border-amber-300' : 'hover:border-slate-300'
+                className={`p-4 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] space-y-2.5 transition-all group ${
+                  modoOculto ? 'cursor-pointer hover:border-slate-900 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none' : ''
                 }`}
               >
                 {/* Epígrafe, badge del tema y botón papelera */}
                 <div className="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-red-600">
+                    <span className="font-mono font-bold text-red-600 px-2 py-0.5 rounded-md bg-red-50 border border-slate-900 text-[10px]">
                       Tema {item.tema_id}
                     </span>
                     {item.categoria_dato && (
-                      <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-slate-100 text-slate-600">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-900 border border-slate-900">
                         {item.categoria_dato}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="truncate max-w-[170px] text-slate-400 font-medium">
+                    <span className="truncate max-w-[170px] text-slate-500 font-medium font-mono text-[10px]">
                       {item.tema?.titulo || `Tema ${item.tema_id}`}
                     </span>
                     {/* Botón papelera para eliminar ficha */}
                     <button
                       type="button"
                       onClick={(e) => handleEliminarFicha(e, item.id)}
-                      className="p-1 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Eliminar esta ficha técnica"
                       aria-label="Eliminar ficha"
                     >
@@ -520,28 +520,28 @@ function ChuletaContent() {
 
                 {/* Caja de Valor Exacto */}
                 {revelada ? (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+                  <div className="p-3 rounded-lg bg-slate-50 border-2 border-slate-900 flex items-center justify-between gap-3 animate-in fade-in duration-150">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
+                      <span className="text-[11px] text-slate-600 uppercase tracking-wider font-bold">
                         Dato Oficial:
                       </span>
                     </div>
-                    <span className="font-mono font-black text-sm text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg text-right">
+                    <span className="font-mono font-black text-sm text-emerald-950 bg-emerald-100 border border-slate-900 px-2.5 py-0.5 rounded-md text-right">
                       {item.valor_exacto}
                     </span>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/60 flex items-center justify-center gap-2 text-amber-700 text-xs font-semibold select-none">
-                    <Eye className="w-4 h-4 text-amber-500" />
+                  <div className="p-3 rounded-lg bg-amber-50 border-2 border-slate-900 flex items-center justify-center gap-2 text-slate-900 text-xs font-bold select-none shadow-[2px_2px_0px_0px_#0f172a]">
+                    <Eye className="w-4 h-4 text-amber-600" />
                     <span>👆 Toca para desvelar el dato exacto</span>
                   </div>
                 )}
 
                 {/* Trampa habitual de examen */}
                 {revelada && item.trampa_habitual && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 text-[11px] text-rose-900 flex items-start gap-2 animate-in fade-in duration-150">
-                    <AlertOctagon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-slate-900 text-[11px] text-slate-900 flex items-start gap-2 animate-in fade-in duration-150">
+                    <AlertOctagon className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-rose-700">Trampa de examen: </span>
                       {item.trampa_habitual}

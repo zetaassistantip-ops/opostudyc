@@ -20,6 +20,7 @@ import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from 
 import BottomNav from '@/components/BottomNav';
 import UserAuthButton from '@/components/UserAuthButton';
 import RachaDiarioModal from '@/components/RachaDiarioModal';
+import BotonInstalarApp from '@/components/BotonInstalarApp';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPrincipal() {
@@ -166,8 +167,9 @@ export default function DashboardPrincipal() {
           </div>
         </div>
 
-        {/* Acciones de usuario y racha */}
-        <div className="flex items-center gap-2">
+        {/* Acciones de usuario, descargar app y racha */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <BotonInstalarApp />
           <button
             onClick={() => setModalRachaAbierto(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100/90 active:scale-95 border border-amber-200/80 text-amber-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"

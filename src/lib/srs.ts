@@ -24,6 +24,69 @@ export function barajarOpciones(pregunta: Pregunta): PreguntaJuego {
 }
 
 /**
+ * Clasificación y métricas universales contra el olvido
+ */
+
+/**
+ * Determina si una pregunta ha sido vista/intentada por el opositor
+ */
+export function esPreguntaVista(p: Pregunta): boolean {
+  return (
+    p.ultima_vez_vista !== null ||
+    (p.caja_leitner ?? 0) > 0 ||
+    (p.fallos_totales ?? 0) > 0 ||
+    (p.aciertos_consecutivos ?? 0) > 0
+  );
+}
+
+/**
+ * Determina si una pregunta tiene un Fallo Activo (pregunta atascada sin resolver).
+ * Regla: Caja 0 representa exclusivamente Fallo Activo si el usuario la ha visto y fallado.
+ * Si ya se ha acertado (caja_leitner >= 1), el fallo queda resuelto y ya no es un fallo activo.
+ */
+export function esFalloActivo(p: Pregunta): boolean {
+  if (!esPreguntaVista(p)) return false;
+  return (p.caja_leitner ?? 0) === 0 && (p.fallos_totales ?? 0) > 0;
+}
+
+/**
+ * Determina si una pregunta está Acertada / Superada
+ * Regla: Caja >= 1 (acertada a la primera o ya corregida tras un fallo) o si fue vista y no es un fallo activo.
+ */
+export function esPreguntaAcertada(p: Pregunta): boolean {
+  if (!esPreguntaVista(p)) return false;
+  return (p.caja_leitner ?? 0) >= 1 || !esFalloActivo(p);
+}
+
+/**
+ * Determina si una pregunta está Consolidada a largo plazo (caja >= 2)
+ */
+export function esPreguntaConsolidada(p: Pregunta): boolean {
+  return (p.caja_leitner ?? 0) >= 2;
+}
+
+/**
+ * Calcula las métricas pedagógicas unificadas para un conjunto de preguntas
+ */
+export function calcularMetricasPreguntas(preguntas: Pregunta[]) {
+  const vistas = preguntas.filter(esPreguntaVista);
+  const totalVistas = vistas.length;
+  const acertadas = vistas.filter(esPreguntaAcertada).length;
+  const falladasActivas = totalVistas - acertadas;
+  const porcentajeRetencion = totalVistas > 0 ? Math.round((acertadas / totalVistas) * 100) : 0;
+  const porcentajeFallos = totalVistas > 0 ? 100 - porcentajeRetencion : 0;
+
+  return {
+    total: preguntas.length,
+    vistas: totalVistas,
+    acertadas,
+    falladasActivas,
+    porcentajeRetencion,
+    porcentajeFallos,
+  };
+}
+
+/**
  * 2. LÓGICA PEDAGÓGICA Y ALGORITMO SRS CONTRA LA CURVA DEL OLVIDO:
  * Calcula el nuevo estado de la pregunta según el nivel de certeza del opositor.
  */
@@ -38,12 +101,12 @@ export function calcularSRS(
   const DIA = 24 * HORA;
 
   if (tipo === 'fallo') {
-    // Fallo: Cae a Caja 0, suma fallo, y vuelve a salir en 10 minutos (en la misma sesión)
+    // Fallo: Cae a Caja 0 (Fallo Activo), suma fallo, y vuelve a salir en 10 minutos (en la misma sesión)
     const proxima = new Date(ahora + 10 * MINUTO);
     return {
       caja_leitner: 0,
       proxima_revision: proxima.toISOString(),
-      fallos_totales: preguntaActual.fallos_totales + 1,
+      fallos_totales: (preguntaActual.fallos_totales ?? 0) + 1,
       aciertos_consecutivos: 0,
       ultima_vez_vista: new Date(ahora).toISOString(),
       intervaloTexto: 'En 10 minutos (Repaso inmediato hoy)',
@@ -56,15 +119,18 @@ export function calcularSRS(
     return {
       caja_leitner: 1,
       proxima_revision: proxima.toISOString(),
-      fallos_totales: preguntaActual.fallos_totales,
-      aciertos_consecutivos: 1,
+      fallos_totales: preguntaActual.fallos_totales ?? 0,
+      aciertos_consecutivos: (preguntaActual.aciertos_consecutivos ?? 0) + 1,
       ultima_vez_vista: new Date(ahora).toISOString(),
       intervaloTexto: 'En 24 horas (Afianzar duda)',
     };
   }
 
   // Acierto Seguro (100% de confianza)
-  const nuevaCaja = Math.min(5, Math.max(1, preguntaActual.caja_leitner + 1));
+  // Si no existía registro previo o venía de fallo (caja 0): caja_leitner = 1.
+  // Si ya existía registro con caja >= 1: sube caja_leitner + 1 (máx 5)
+  const cajaActual = preguntaActual.caja_leitner ?? 0;
+  const nuevaCaja = Math.min(5, Math.max(1, cajaActual + 1));
   let intervaloMs: number;
   let intervaloTexto: string;
 
@@ -96,8 +162,8 @@ export function calcularSRS(
   return {
     caja_leitner: nuevaCaja,
     proxima_revision: proxima.toISOString(),
-    fallos_totales: preguntaActual.fallos_totales,
-    aciertos_consecutivos: preguntaActual.aciertos_consecutivos + 1,
+    fallos_totales: preguntaActual.fallos_totales ?? 0,
+    aciertos_consecutivos: (preguntaActual.aciertos_consecutivos ?? 0) + 1,
     ultima_vez_vista: new Date(ahora).toISOString(),
     intervaloTexto,
   };
@@ -176,8 +242,8 @@ export function seleccionarCazadorFallos(
   cantidad: number = 15
 ): PreguntaJuego[] {
   const conFallos = todasLasPreguntas
-    .filter((p) => p.fallos_totales > 0)
-    .sort((a, b) => b.fallos_totales - a.fallos_totales);
+    .filter(esFalloActivo)
+    .sort((a, b) => (b.fallos_totales ?? 0) - (a.fallos_totales ?? 0));
 
   return conFallos.slice(0, cantidad).map(barajarOpciones);
 }

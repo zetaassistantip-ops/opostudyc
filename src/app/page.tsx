@@ -13,9 +13,25 @@ import {
   BookOpen,
   Crown,
   Check,
+  RotateCcw,
+  Trash2,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { Tema, Pregunta, EstadisticasGlobales, SesionEstudio } from '@/lib/types';
-import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from '@/lib/supabase';
+import {
+  getTemas,
+  getPreguntas,
+  getHistorialSesiones,
+  calcularRachaDias,
+  resetearProgresoTema,
+} from '@/lib/supabase';
+import {
+  esPreguntaVista,
+  esFalloActivo,
+  esPreguntaAcertada,
+  calcularMetricasPreguntas,
+} from '@/lib/srs';
 import BottomNav from '@/components/BottomNav';
 import UserAuthButton from '@/components/UserAuthButton';
 import RachaDiarioModal from '@/components/RachaDiarioModal';
@@ -35,6 +51,10 @@ export default function DashboardPrincipal() {
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState<string>('');
 
+  // Estado para modal de resetear tema
+  const [temaAResetear, setTemaAResetear] = useState<Tema | null>(null);
+  const [reseteandoTema, setReseteandoTema] = useState(false);
+
   const [stats, setStats] = useState<EstadisticasGlobales>({
     totalPreguntas: 0,
     enLlamasHoy: 0,
@@ -46,6 +66,8 @@ export default function DashboardPrincipal() {
     rachaDias: 0,
     falladasHistoricas: 0,
     preguntasVistas: 0,
+    acertadas: 0,
+    falladasActivas: 0,
     porcentajeRetencionReal: 0,
     temasExplorados: 0,
     totalTemas: 35,
@@ -74,44 +96,46 @@ export default function DashboardPrincipal() {
         let nuevas = 0;
         let falladasHistoricas = 0;
         let vistas = 0;
+        let acertadas = 0;
+        let falladasActivas = 0;
 
         listaPreguntas.forEach((p) => {
-          const esVista = p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0;
+          const esVista = esPreguntaVista(p);
           if (esVista) {
             vistas++;
+            if (esPreguntaAcertada(p)) {
+              acertadas++;
+            } else if (esFalloActivo(p)) {
+              falladasActivas++;
+            }
+          } else {
+            nuevas++;
           }
 
-          if (p.fallos_totales > 0) falladasHistoricas++;
+          if ((p.fallos_totales ?? 0) > 0) falladasHistoricas++;
 
-          if (!esVista) {
-            nuevas++;
-          } else if (new Date(p.proxima_revision).getTime() <= ahora) {
+          if (esVista && new Date(p.proxima_revision).getTime() <= ahora) {
             enLlamas++;
           }
 
-          if (p.caja_leitner >= 4) {
+          if ((p.caja_leitner ?? 0) >= 4) {
             dominadas++;
-          } else if (p.caja_leitner >= 2) {
+          } else if ((p.caja_leitner ?? 0) >= 2) {
             asentadas++;
-          } else if (p.caja_leitner === 1) {
+          } else if ((p.caja_leitner ?? 0) === 1) {
             enObservacion++;
           }
         });
 
         const total = listaPreguntas.length || 0;
-        // Retención real estrictamente calculada sobre las preguntas vistas por el usuario
-        const dominadasTotales = dominadas + Math.round(asentadas * 0.7);
+        // Retención real estrictamente calculada: acertadas / vistas
         const porcentajeRetencionReal = vistas > 0
-          ? Math.min(100, Math.round((dominadasTotales / vistas) * 100))
+          ? Math.round((acertadas / vistas) * 100)
           : 0;
 
         // Temas explorados (con al menos 1 pregunta vista)
         const temasConVistas = listaTemas.filter((t) =>
-          listaPreguntas.some(
-            (p) =>
-              p.tema_id === t.id &&
-              (p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0)
-          )
+          listaPreguntas.some((p) => p.tema_id === t.id && esPreguntaVista(p))
         ).length;
 
         const totalTemasNum = listaTemas.length || 35;
@@ -130,6 +154,8 @@ export default function DashboardPrincipal() {
           rachaDias: rachaReal,
           falladasHistoricas,
           preguntasVistas: vistas,
+          acertadas,
+          falladasActivas,
           porcentajeRetencionReal,
           temasExplorados: temasConVistas,
           totalTemas: totalTemasNum,
@@ -147,21 +173,118 @@ export default function DashboardPrincipal() {
 
   // Progreso por tema: Retención calculada estrictamente sobre las vistas del tema
   const estadisticasPorTema = useMemo(() => {
-    const map = new Map<number, { total: number; vistas: number; dominadas: number; porcentaje: number }>();
+    const map = new Map<
+      number,
+      {
+        total: number;
+        vistas: number;
+        acertadas: number;
+        falladasActivas: number;
+        porcentajeRetencion: number;
+      }
+    >();
 
     temas.forEach((t) => {
       const pregsDelTema = preguntas.filter((p) => p.tema_id === t.id);
-      const total = pregsDelTema.length;
-      const vistas = pregsDelTema.filter(
-        (p) => p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0
-      ).length;
-      const dominadas = pregsDelTema.filter((p) => p.caja_leitner >= 3).length;
-      const porcentaje = vistas > 0 ? Math.round((dominadas / vistas) * 100) : 0;
-      map.set(t.id, { total, vistas, dominadas, porcentaje });
+      const metrics = calcularMetricasPreguntas(pregsDelTema);
+      map.set(t.id, {
+        total: metrics.total,
+        vistas: metrics.vistas,
+        acertadas: metrics.acertadas,
+        falladasActivas: metrics.falladasActivas,
+        porcentajeRetencion: metrics.porcentajeRetencion,
+      });
     });
 
     return map;
   }, [temas, preguntas]);
+
+  // Función para resetear estadísticas de un tema
+  const handleConfirmarResetTema = async () => {
+    if (!temaAResetear) return;
+    setReseteandoTema(true);
+    try {
+      const pregsDelTema = preguntas.filter((p) => p.tema_id === temaAResetear.id);
+      const ids = pregsDelTema.map((p) => p.id);
+      await resetearProgresoTema(temaAResetear.id, ids);
+
+      // Actualizar preguntas locales
+      const preguntasActualizadas = preguntas.map((p) => {
+        if (p.tema_id === temaAResetear.id) {
+          return {
+            ...p,
+            caja_leitner: 0,
+            proxima_revision: new Date().toISOString(),
+            fallos_totales: 0,
+            aciertos_consecutivos: 0,
+            ultima_vez_vista: null,
+          };
+        }
+        return p;
+      });
+      setPreguntas(preguntasActualizadas);
+      setSesiones((prev) => prev.filter((s) => s.tema_id !== temaAResetear.id));
+
+      // Recalcular métricas
+      const ahora = Date.now();
+      let enLlamas = 0;
+      let dominadas = 0;
+      let asentadas = 0;
+      let enObservacion = 0;
+      let nuevas = 0;
+      let falladasHistoricas = 0;
+      let vistas = 0;
+      let acertadas = 0;
+      let falladasActivas = 0;
+
+      preguntasActualizadas.forEach((p) => {
+        const esVista = esPreguntaVista(p);
+        if (esVista) {
+          vistas++;
+          if (esPreguntaAcertada(p)) acertadas++;
+          else if (esFalloActivo(p)) falladasActivas++;
+        } else {
+          nuevas++;
+        }
+        if ((p.fallos_totales ?? 0) > 0) falladasHistoricas++;
+        if (esVista && new Date(p.proxima_revision).getTime() <= ahora) enLlamas++;
+        if ((p.caja_leitner ?? 0) >= 4) dominadas++;
+        else if ((p.caja_leitner ?? 0) >= 2) asentadas++;
+        else if ((p.caja_leitner ?? 0) === 1) enObservacion++;
+      });
+
+      const total = preguntasActualizadas.length || 0;
+      const porcentajeRetencionReal = vistas > 0 ? Math.round((acertadas / vistas) * 100) : 0;
+      const temasConVistas = temas.filter((t) =>
+        preguntasActualizadas.some((p) => p.tema_id === t.id && esPreguntaVista(p))
+      ).length;
+      const totalTemasNum = temas.length || 35;
+
+      setStats((prev) => ({
+        ...prev,
+        enLlamasHoy: enLlamas,
+        dominadas,
+        asentadas,
+        enObservacion,
+        nuevas,
+        porcentajeDominio: porcentajeRetencionReal,
+        falladasHistoricas,
+        preguntasVistas: vistas,
+        acertadas,
+        falladasActivas,
+        porcentajeRetencionReal,
+        temasExplorados: temasConVistas,
+        porcentajeCoberturaTemas: Math.round((temasConVistas / totalTemasNum) * 100),
+        porcentajeCoberturaPreguntas: total > 0 ? Math.round((vistas / total) * 100) : 0,
+      }));
+
+      setTemaAResetear(null);
+    } catch (err) {
+      console.error('Error reseteando tema:', err);
+    } finally {
+      setReseteandoTema(false);
+    }
+  };
 
   // Filtrado de temas por buscador
   const temasFiltrados = useMemo(() => {
@@ -251,7 +374,7 @@ export default function DashboardPrincipal() {
               </span>
               <span className="text-xs font-mono text-slate-500 font-medium">
                 {stats.preguntasVistas > 0
-                  ? `(${stats.dominadas + stats.asentadas} afianzadas de ${stats.preguntasVistas} vistas)`
+                  ? `(${stats.acertadas} superadas de ${stats.preguntasVistas} vistas)`
                   : 'Sin preguntas vistas aún'}
               </span>
             </div>
@@ -357,7 +480,7 @@ export default function DashboardPrincipal() {
               <Skull className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-900 border border-slate-900">
-              {stats.falladasHistoricas} dudas / fallos
+              {stats.falladasActivas} dudas / fallos
             </span>
           </div>
           <div>
@@ -432,7 +555,13 @@ export default function DashboardPrincipal() {
         {/* Lista de temas interactiva */}
         <div className="space-y-2">
           {temasFiltrados.map((tema) => {
-            const dataTema = estadisticasPorTema.get(tema.id) || { total: 0, vistas: 0, dominadas: 0, porcentaje: 0 };
+            const dataTema = estadisticasPorTema.get(tema.id) || {
+              total: 0,
+              vistas: 0,
+              acertadas: 0,
+              falladasActivas: 0,
+              porcentajeRetencion: 0,
+            };
             const estaMarcado = temasSeleccionados.includes(tema.id);
 
             return (
@@ -468,7 +597,7 @@ export default function DashboardPrincipal() {
                       </span>
                     ) : (
                       <span className="font-mono text-emerald-700 font-bold">
-                        {dataTema.porcentaje}% retención ({dataTema.dominadas}/{dataTema.vistas})
+                        {dataTema.porcentajeRetencion}% retención ({dataTema.acertadas}/{dataTema.vistas})
                       </span>
                     )}
                   </div>
@@ -483,24 +612,41 @@ export default function DashboardPrincipal() {
                       className={`h-full transition-all duration-300 rounded-full ${
                         dataTema.vistas === 0 ? 'bg-slate-200' : 'bg-emerald-500'
                       }`}
-                      style={{ width: `${dataTema.porcentaje}%` }}
+                      style={{ width: `${dataTema.porcentajeRetencion}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Botón Entrenar Tema individual */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTemaSeleccionadoParaTest(tema.id);
-                    setModalSimulacroAbierto(true);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-slate-900 text-[11px] font-mono font-bold transition-all flex items-center gap-1 flex-shrink-0 cursor-pointer"
-                  title={`Configurar Test Tema ${tema.id}`}
-                >
-                  <span>Test</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                {/* Acciones del tema: Resetear (si tiene vistas) y Configurar Test */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {dataTema.vistas > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTemaAResetear(tema);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-300 transition-all cursor-pointer"
+                      title={`Resetear estadísticas del Tema ${tema.id}`}
+                      aria-label={`Resetear estadísticas del Tema ${tema.id}`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemaSeleccionadoParaTest(tema.id);
+                      setModalSimulacroAbierto(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-slate-900 text-[11px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    title={`Configurar Test Tema ${tema.id}`}
+                  >
+                    <span>Test</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -540,6 +686,55 @@ export default function DashboardPrincipal() {
               </span>
               <ChevronRight className="w-5 h-5 text-amber-400" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN: RESETEAR TEMA */}
+      {temaAResetear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm bg-white rounded-2xl border-3 border-slate-900 shadow-[6px_6px_0px_0px_#0f172a] p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 border-2 border-slate-900 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-black text-slate-900 tracking-tight leading-tight">
+                  ¿Resetear estadísticas del Tema {temaAResetear.id}?
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  ¿Estás seguro de que quieres borrar todos tus datos recopilados para{' '}
+                  <strong className="text-slate-900 font-bold">{temaAResetear.titulo}</strong>? Se eliminará tu historial de{' '}
+                  <strong className="text-slate-900">{estadisticasPorTema.get(temaAResetear.id)?.vistas || 0} preguntas vistas</strong>, aciertos y fallos de este tema para empezar desde cero.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={reseteandoTema}
+                onClick={() => setTemaAResetear(null)}
+                className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-900 text-slate-800 text-xs font-bold font-mono transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={reseteandoTema}
+                onClick={handleConfirmarResetTema}
+                className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {reseteandoTema ? (
+                  <span>Borrando...</span>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Sí, borrar tema</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

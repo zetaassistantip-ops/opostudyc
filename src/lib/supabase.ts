@@ -304,6 +304,141 @@ export async function actualizarPreguntaSRS(
 }
 
 /**
+ * Resetea el progreso y estadísticas de un tema específico para el usuario
+ */
+export async function resetearProgresoTema(
+  temaId: number,
+  preguntasTemaIds?: string[]
+): Promise<boolean> {
+  // 1. Resetear en LocalStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const prevRaw = localStorage.getItem(LOCAL_STORAGE_PREGUNTAS_KEY);
+      if (prevRaw) {
+        const todas: Pregunta[] = JSON.parse(prevRaw);
+        const actualizadas = todas.map((p) => {
+          const coincideTema = p.tema_id === temaId;
+          const coincideId = preguntasTemaIds && preguntasTemaIds.includes(p.id);
+          if (coincideTema || coincideId) {
+            return {
+              ...p,
+              caja_leitner: 0,
+              proxima_revision: new Date().toISOString(),
+              fallos_totales: 0,
+              aciertos_consecutivos: 0,
+              ultima_vez_vista: null,
+            };
+          }
+          return p;
+        });
+        localStorage.setItem(LOCAL_STORAGE_PREGUNTAS_KEY, JSON.stringify(actualizadas));
+      }
+
+      const sesionesRaw = localStorage.getItem(LOCAL_STORAGE_SESIONES_KEY);
+      if (sesionesRaw) {
+        const sesiones: SesionEstudio[] = JSON.parse(sesionesRaw);
+        const filtradas = sesiones.filter((s) => s.tema_id !== temaId);
+        localStorage.setItem(LOCAL_STORAGE_SESIONES_KEY, JSON.stringify(filtradas));
+      }
+    } catch (e) {
+      console.warn('Error limpiando progreso local del tema:', e);
+    }
+  }
+
+  // 2. Resetear en Supabase si hay conexión y usuario
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const targetUserId = getEffectiveUserId() || user?.id;
+
+      if (targetUserId) {
+        let idsParaBorrar = preguntasTemaIds;
+        if (!idsParaBorrar || idsParaBorrar.length === 0) {
+          const { data: pregs } = await supabase
+            .from('preguntas')
+            .select('id')
+            .eq('tema_id', temaId);
+          if (pregs) {
+            idsParaBorrar = pregs.map((p) => p.id);
+          }
+        }
+
+        if (idsParaBorrar && idsParaBorrar.length > 0) {
+          await supabase
+            .from('usuario_progreso_srs')
+            .delete()
+            .eq('user_id', targetUserId)
+            .in('pregunta_id', idsParaBorrar);
+        }
+
+        await supabase
+          .from('historial_sesiones')
+          .delete()
+          .eq('user_id', targetUserId)
+          .eq('tema_id', temaId);
+      }
+    } catch (e) {
+      console.error('Error reseteando progreso del tema en Supabase:', e);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Resetea TODO el progreso del usuario en todos los temas
+ */
+export async function resetearProgresoGlobal(): Promise<boolean> {
+  // 1. Resetear en LocalStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const prevRaw = localStorage.getItem(LOCAL_STORAGE_PREGUNTAS_KEY);
+      if (prevRaw) {
+        const todas: Pregunta[] = JSON.parse(prevRaw);
+        const actualizadas = todas.map((p) => ({
+          ...p,
+          caja_leitner: 0,
+          proxima_revision: new Date().toISOString(),
+          fallos_totales: 0,
+          aciertos_consecutivos: 0,
+          ultima_vez_vista: null,
+        }));
+        localStorage.setItem(LOCAL_STORAGE_PREGUNTAS_KEY, JSON.stringify(actualizadas));
+      }
+      localStorage.removeItem(LOCAL_STORAGE_SESIONES_KEY);
+    } catch (e) {
+      console.warn('Error limpiando progreso global en localStorage:', e);
+    }
+  }
+
+  // 2. Resetear en Supabase si hay usuario
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const targetUserId = getEffectiveUserId() || user?.id;
+
+      if (targetUserId) {
+        await supabase
+          .from('usuario_progreso_srs')
+          .delete()
+          .eq('user_id', targetUserId);
+
+        await supabase
+          .from('historial_sesiones')
+          .delete()
+          .eq('user_id', targetUserId);
+      }
+    } catch (e) {
+      console.error('Error reseteando progreso global en Supabase:', e);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Guarda una sección ingerida con su batería de preguntas generadas
  */
 export async function guardarSeccionConPreguntas(

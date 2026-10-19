@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Tema, Pregunta } from '@/lib/types';
 import { solicitarGeneracionMotorTema } from '@/lib/supabase';
+import { esFalloActivo } from '@/lib/srs';
 
 interface ModalSimulacroConfigProps {
   abierto: boolean;
@@ -77,9 +78,7 @@ export default function ModalSimulacroConfig({
     const pregs = preguntas.filter((p) => ids.includes(p.tema_id));
 
     const nuevas = pregs.filter((p) => p.ultima_vez_vista === null).length;
-    const falladas = pregs.filter(
-      (p) => p.fallos_totales > 0 || (p.caja_leitner <= 1 && p.ultima_vez_vista !== null)
-    ).length;
+    const falladas = pregs.filter(esFalloActivo).length;
     const total = pregs.length;
 
     return { nuevas, falladas, total };

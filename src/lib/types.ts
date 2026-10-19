@@ -82,6 +82,8 @@ export interface EstadisticasGlobales {
   falladasHistoricas: number;
   // Métricas reales de retención y cobertura pedagógica
   preguntasVistas: number;
+  acertadas: number;
+  falladasActivas: number;
   porcentajeRetencionReal: number;
   temasExplorados: number;
   totalTemas: number;

@@ -26,6 +26,7 @@ import {
   barajarOpciones,
   calcularSRS,
   obtenerEtiquetaCaja,
+  esFalloActivo,
 } from '@/lib/srs';
 import {
   getPreguntas,
@@ -279,9 +280,7 @@ function TestGameContent() {
             setMotivoVacio('nuevas');
           }
         } else if (efectivoFiltro === 'falladas') {
-          poolFiltrado = poolBase.filter(
-            (p) => p.fallos_totales > 0 || (p.caja_leitner <= 1 && p.ultima_vez_vista !== null)
-          );
+          poolFiltrado = poolBase.filter(esFalloActivo);
           if (poolFiltrado.length === 0) {
             setMotivoVacio('falladas');
           }

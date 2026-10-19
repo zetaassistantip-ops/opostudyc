@@ -1640,3 +1640,40 @@ export async function rechazarImagenesPropuestasMasivo(
     return { ok: false, actualizadas: 0, error: msg };
   }
 }
+
+/**
+ * Purga automáticamente de Supabase fichas corruptas o defectuosas detectadas en el cliente
+ */
+export async function purgarFichasDefectuosas(ids: string[]): Promise<boolean> {
+  if (!ids || ids.length === 0) return true;
+  try {
+    const res = await fetch('/api/admin/fichas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch (e) {
+    console.warn('Aviso purgando fichas defectuosas en background:', e);
+    return false;
+  }
+}
+
+/**
+ * Resetea por completo todo el banco global de fichas_tecnicas y usuario_fichas_srs (solo Admin)
+ */
+export async function resetearBancoFichasAdmin(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/fichas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetTotal: true }),
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch (e) {
+    console.error('Error reseteando banco de fichas con admin:', e);
+    return false;
+  }
+}

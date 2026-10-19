@@ -57,14 +57,24 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, ids } = body;
+    const { id, ids, resetTotal } = body;
+
+    const supabase = getSupabaseAdmin();
+
+    if (resetTotal) {
+      await supabase.from('usuario_fichas_srs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      const { error } = await supabase.from('fichas_tecnicas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, mensaje: 'Banco de fichas técnicas reseteado por completo' });
+    }
+
     const targetIds: string[] = ids || (id ? [id] : []);
 
     if (targetIds.length === 0) {
       return NextResponse.json({ error: 'Falta el id o ids de fichas' }, { status: 400 });
     }
-
-    const supabase = getSupabaseAdmin();
 
     // Eliminar dependencias en usuario_fichas_srs
     await supabase.from('usuario_fichas_srs').delete().in('ficha_id', targetIds);

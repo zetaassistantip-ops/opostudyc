@@ -649,6 +649,9 @@ export default function FichasPage() {
           const nuevas = validas.filter((f) => !idsPrev.has(f.id));
           return [...nuevas, ...prev];
         });
+        setIndiceActual(0);
+        setEstaGirada(false);
+        setSesionTerminada(false);
       } else {
         alert(res.error || 'No se pudieron generar fichas con IA.');
       }
@@ -977,7 +980,7 @@ export default function FichasPage() {
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>+ Fichas IA</span>
+                <span>+ 5 Fichas IA</span>
               </>
             )}
           </button>
@@ -1018,12 +1021,12 @@ export default function FichasPage() {
                 {generandoIA ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Generando 8 fichas críticas con IA...</span>
+                    <span>Generando 5 fichas críticas con IA...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>⚡ Generar Fichas con Tribunal IA</span>
+                    <span>⚡ Generar 5 Fichas con Tribunal IA</span>
                   </>
                 )}
               </button>
@@ -1153,7 +1156,7 @@ export default function FichasPage() {
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-slate-500 font-bold block truncate">
-                        {fichaActual.categoria_dato || 'Ficha de Examen'}
+                        {fichaActual.tipo_ficha === 'tabla' ? '📊 Tabla Normativa' : (fichaActual.categoria_dato || '🎯 Concepto Clave')}
                       </span>
                     </div>
 

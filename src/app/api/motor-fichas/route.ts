@@ -145,7 +145,7 @@ ${listaExclusion}
 TEXTO Y BASE NORMATIVA DISPONIBLE:
 ${textoBase}
 
-Genera EXACTAMENTE 8 Fichas Técnicas con formato "Reto Guiado" aplicando rigurosamente la ${esCapa1 ? 'CAPA 1 (Prioridad 100% examen)' : 'CAPA 2 (Hilar fino sin repetir las existentes)'}.
+Genera EXACTAMENTE 5 Fichas Técnicas con formato "Reto Guiado" aplicando rigurosamente la ${esCapa1 ? 'CAPA 1 (Prioridad 100% examen)' : 'CAPA 2 (Hilar fino sin repetir las existentes)'}.
 Devuelve ÚNICAMENTE un JSON estructurado válido:
 {
   "fichas": [
@@ -155,8 +155,7 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
       "dorso_respuesta": "Tabla Markdown completa o solución explicada con cifra exacta + bloque ⚠️ Trampa de examen: ...",
       "concepto": "Título descriptivo no genérico",
       "valor_exacto": "Resumen clave o cifra exacta",
-      "trampa_habitual": "La trampa típica de tribunal",
-      "categoria_dato": "Etiqueta técnica (ej. Tabla Normativa, Presiones, Dotaciones)"
+      "trampa_habitual": "La trampa típica de tribunal"
     }
   ]
 }`;
@@ -212,7 +211,6 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
         concepto: string;
         valor_exacto: string;
         trampa_habitual: string;
-        categoria_dato?: string;
       }>;
     };
 
@@ -227,7 +225,7 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
       }
     }
 
-    const fichasGeneradas = parsed.fichas || [];
+    const fichasGeneradas = (parsed.fichas || []).slice(0, 5);
 
     if (!fichasGeneradas || fichasGeneradas.length === 0) {
       return NextResponse.json(
@@ -236,8 +234,8 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
       );
     }
 
-    // 5. Insertar las fichas en Supabase con estructura Anki y tipo_ficha
-    const paraInsertar = fichasGeneradas.map((f) => {
+    // 5. Preparar filas para insertar (sin categoria_dato, adaptativo al schema)
+    let filasAInsertar: Record<string, unknown>[] = fichasGeneradas.map((f) => {
       const tipo = f.tipo_ficha === 'tabla' ? 'tabla' : 'concepto';
       const frente = f.frente_pregunta?.trim() || f.concepto.trim();
       const dorso =
@@ -248,25 +246,57 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
         tema_id: temaId,
         concepto: f.concepto.trim(),
         valor_exacto: f.valor_exacto.trim(),
-        trampa_habitual: f.trampa_habitual.trim(),
-        categoria_dato: f.categoria_dato?.trim() || (tipo === 'tabla' ? 'Tabla / Clasificación' : 'Concepto'),
+        trampa_habitual: f.trampa_habitual ? f.trampa_habitual.trim() : '',
         tipo_ficha: tipo,
         frente_pregunta: frente,
         dorso_respuesta: dorso,
       };
     });
 
-    const { data: insertadas, error: errorInsert } = await supabase
-      .from('fichas_tecnicas')
-      .insert(paraInsertar)
-      .select('*');
+    let insertadas: unknown[] | null = null;
+    let errorFinal: { message: string } | null = null;
+    let intentos = 0;
+    const maxIntentos = 4;
 
-    if (errorInsert) {
-      console.error('Error insertando fichas_tecnicas en Supabase:', errorInsert);
+    while (intentos < maxIntentos) {
+      intentos++;
+      const resInsert = await supabase
+        .from('fichas_tecnicas')
+        .insert(filasAInsertar)
+        .select('*');
+
+      if (!resInsert.error) {
+        insertadas = resInsert.data;
+        errorFinal = null;
+        break;
+      }
+
+      errorFinal = resInsert.error;
+      console.warn(`Intento ${intentos} de inserción en fichas_tecnicas:`, resInsert.error.message);
+
+      // Si Supabase informa que una columna no existe en el schema cache (ej. 'categoria_dato', 'tipo_ficha'...)
+      const matchCol = resInsert.error.message.match(/Could not find the '([^']+)' column/i);
+      if (matchCol && matchCol[1]) {
+        const colFaltante = matchCol[1];
+        console.warn(`Columna '${colFaltante}' no existe en fichas_tecnicas. Omitiendo y reintentando...`);
+        filasAInsertar = filasAInsertar.map((fila) => {
+          const copia = { ...fila };
+          delete copia[colFaltante];
+          return copia;
+        });
+        continue;
+      }
+
+      // Si no es un error de columna en schema cache, detenemos el reintento
+      break;
+    }
+
+    if (errorFinal) {
+      console.error('Error final insertando fichas_tecnicas en Supabase:', errorFinal);
       return NextResponse.json(
         {
-          error: `Error guardando en Supabase: ${errorInsert.message}.`,
-          fichasEnMemoria: paraInsertar,
+          error: `Error guardando en Supabase: ${errorFinal.message}.`,
+          fichasEnMemoria: filasAInsertar,
         },
         { status: 500 }
       );

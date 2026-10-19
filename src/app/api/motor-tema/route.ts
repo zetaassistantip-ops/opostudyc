@@ -8,6 +8,7 @@ export const maxDuration = 60;
 interface MotorTemaRequest {
   temaId: number;
   forzarGeneracion?: boolean;
+  userId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { temaId, forzarGeneracion = false } = body;
+    const { temaId, forzarGeneracion = false, userId } = body;
 
     if (!temaId || typeof temaId !== 'number') {
       return NextResponse.json(
@@ -197,6 +198,36 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
         temperature: 0.25,
       },
     });
+
+    // Tracking de tokens consumidos y coste estimado en euros
+    try {
+      const usage = response.usageMetadata;
+      const tokens =
+        usage?.totalTokenCount ||
+        ((usage?.promptTokenCount || 0) + (usage?.candidatesTokenCount || 0)) ||
+        0;
+      const costeEur = tokens * 0.00000035;
+
+      if (userId && tokens > 0) {
+        const { data: perfil } = await supabase
+          .from('perfiles_usuarios')
+          .select('tokens_consumidos, coste_estimado_eur')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (perfil) {
+          await supabase
+            .from('perfiles_usuarios')
+            .update({
+              tokens_consumidos: (Number(perfil.tokens_consumidos) || 0) + tokens,
+              coste_estimado_eur: (Number(perfil.coste_estimado_eur) || 0) + costeEur,
+            })
+            .eq('id', userId);
+        }
+      }
+    } catch (e) {
+      console.warn('Aviso registrando tokens en motor-tema:', e);
+    }
 
     const responseText = response.text || '';
     let preguntasGeneradas: Array<{

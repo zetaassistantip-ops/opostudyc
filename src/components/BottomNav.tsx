@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Flame, BookOpen, Zap, ShieldCheck } from 'lucide-react';
+import { Flame, BookOpen, Zap, Crown } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 interface BottomNavProps {
   badgeRepaso?: number;
@@ -10,6 +11,7 @@ interface BottomNavProps {
 
 export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
   const pathname = usePathname();
+  const { esAdmin } = useAuth();
 
   const navItems = [
     {
@@ -31,12 +33,16 @@ export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
       icon: Zap,
       active: pathname.startsWith('/chuleta'),
     },
-    {
-      href: '/admin',
-      label: 'Admin',
-      icon: ShieldCheck,
-      active: pathname.startsWith('/admin'),
-    },
+    ...(esAdmin
+      ? [
+          {
+            href: '/admin',
+            label: 'Admin',
+            icon: Crown,
+            active: pathname.startsWith('/admin'),
+          },
+        ]
+      : []),
   ];
 
   return (

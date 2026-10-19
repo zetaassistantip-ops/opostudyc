@@ -1,5 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import { Tema, SeccionTemario, Pregunta, ResultadoSRS, SesionEstudio, FichaTecnica } from './types';
+import {
+  Tema,
+  SeccionTemario,
+  Pregunta,
+  ResultadoSRS,
+  SesionEstudio,
+  FichaTecnica,
+  UsuarioFichaSRS,
+  PerfilUsuario,
+  UsoMemoriaSupabase,
+} from './types';
 import { TEMAS_CAM, MOCK_SECCIONES, MOCK_PREGUNTAS } from './mock-data';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -12,6 +22,19 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+/**
+ * Obtiene el ID del usuario efectivo (si el Admin está en Modo Dios suplantando a un usuario)
+ */
+export function getEffectiveUserId(): string | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const impId = sessionStorage.getItem('opostudy_impersonated_user_id');
+      if (impId) return impId;
+    } catch {}
+  }
+  return null;
+}
 
 const LOCAL_STORAGE_PREGUNTAS_KEY = 'opobomberos_preguntas_v1';
 const LOCAL_STORAGE_SECCIONES_KEY = 'opobomberos_secciones_v1';
@@ -93,14 +116,15 @@ export async function getPreguntas(temaId?: number): Promise<Pregunta[]> {
         }
 
         if (rawPreguntas.length > 0) {
-          // Comprobar si hay un usuario autenticado para sobreescribir con su progreso individual (SRS)
+          // Comprobar si hay un usuario autenticado o suplantado (Modo Dios) para sobreescribir con su progreso individual (SRS)
           const { data: { user } } = await supabase.auth.getUser();
+          const targetUserId = getEffectiveUserId() || user?.id;
 
-          if (user) {
+          if (targetUserId) {
             const { data: userProgress } = await supabase
               .from('usuario_progreso_srs')
               .select('*')
-              .eq('user_id', user.id);
+              .eq('user_id', targetUserId);
 
             const progressMap = new Map((userProgress || []).map((up) => [up.pregunta_id, up]));
             const preguntasPersonalizadas = rawPreguntas.map((p) => {
@@ -172,10 +196,18 @@ export async function solicitarGeneracionMotorTema(
   forzarGeneracion: boolean = false
 ): Promise<{ ok: boolean; preguntas: Pregunta[]; nuevasGeneradas: number; error?: string }> {
   try {
+    let userId = getEffectiveUserId();
+    if (!userId && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+      } catch {}
+    }
+
     const res = await fetch('/api/motor-tema', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ temaId, forzarGeneracion }),
+      body: JSON.stringify({ temaId, forzarGeneracion, userId }),
     });
 
     const data = await res.json();
@@ -234,13 +266,14 @@ export async function actualizarPreguntaSRS(
   if (supabase) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const targetUserId = getEffectiveUserId() || user?.id;
 
-      if (user) {
-        // Usuario autenticado -> Guardar en su tabla privada de progreso
+      if (targetUserId) {
+        // Usuario autenticado o suplantado en Modo Dios -> Guardar en tabla de progreso
         await supabase
           .from('usuario_progreso_srs')
           .upsert({
-            user_id: user.id,
+            user_id: targetUserId,
             pregunta_id: preguntaId,
             caja_leitner: resultadoSRS.caja_leitner,
             proxima_revision: resultadoSRS.proxima_revision,
@@ -372,13 +405,14 @@ export async function guardarSesionEstudio(sesion: SesionEstudio): Promise<void>
     }
   }
 
-  // 2. Guardar en Supabase si hay usuario autenticado
+  // 2. Guardar en Supabase si hay usuario autenticado o suplantado
   if (supabase) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const targetUserId = getEffectiveUserId() || user?.id;
+      if (targetUserId) {
         await supabase.from('historial_sesiones').insert({
-          user_id: user.id,
+          user_id: targetUserId,
           fecha: sesionConId.fecha,
           tipo_sesion: sesionConId.tipo_sesion,
           tema_id: sesionConId.tema_id || null,
@@ -403,11 +437,12 @@ export async function getHistorialSesiones(): Promise<SesionEstudio[]> {
   if (supabase) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const targetUserId = getEffectiveUserId() || user?.id;
+      if (targetUserId) {
         const { data, error } = await supabase
           .from('historial_sesiones')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', targetUserId)
           .order('created_at', { ascending: false })
           .limit(60);
 
@@ -479,12 +514,23 @@ export function calcularRachaDias(sesiones: SesionEstudio[]): number {
 }
 
 /**
- * Obtiene las fichas técnicas desde Supabase (tabla fichas_tecnicas o fallback secciones_temario)
+ * Obtiene las fichas técnicas desde Supabase hidratadas con el progreso Anki SM-2 y personalización del usuario
  */
-export async function getFichasTecnicas(temaIds?: number[]): Promise<FichaTecnica[]> {
+export async function getFichasTecnicas(
+  temaIds?: number[],
+  customUserId?: string
+): Promise<FichaTecnica[]> {
   const temasMap = new Map<number, Tema>();
   const todosTemas = await getTemas();
   todosTemas.forEach((t) => temasMap.set(t.id, t));
+
+  let targetUserId = customUserId || getEffectiveUserId();
+  if (!targetUserId && supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      targetUserId = user?.id || null;
+    } catch {}
+  }
 
   if (supabase) {
     try {
@@ -495,10 +541,51 @@ export async function getFichasTecnicas(temaIds?: number[]): Promise<FichaTecnic
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return (data as FichaTecnica[]).map((f) => ({
-          ...f,
-          tema: temasMap.get(f.tema_id),
-        }));
+        // Cargar registros de personalización privada (usuario_fichas_srs)
+        const userFichasMap = new Map<string, UsuarioFichaSRS>();
+        if (targetUserId) {
+          const { data: userFichas } = await supabase
+            .from('usuario_fichas_srs')
+            .select('*')
+            .eq('user_id', targetUserId);
+
+          if (userFichas) {
+            userFichas.forEach((uf) => userFichasMap.set(uf.ficha_id, uf));
+          }
+        }
+
+        const filtradas: FichaTecnica[] = [];
+        for (const f of data) {
+          const uSRS = userFichasMap.get(f.id);
+          // Si el usuario la ha eliminado para sí mismo, se omite
+          if (uSRS?.eliminada_por_usuario) continue;
+
+          filtradas.push({
+            id: f.id,
+            tema_id: f.tema_id,
+            concepto: f.concepto,
+            valor_exacto: f.valor_exacto,
+            trampa_habitual: f.trampa_habitual,
+            categoria_dato: f.categoria_dato,
+            frente_pregunta: f.frente_pregunta || f.concepto,
+            dorso_respuesta:
+              f.dorso_respuesta ||
+              `${f.valor_exacto}.${f.trampa_habitual ? `\n\n⚠️ Ojo con la trampa: ${f.trampa_habitual}` : ''}`,
+            created_at: f.created_at,
+            tema: temasMap.get(f.tema_id),
+            usuarioSRS: uSRS || {
+              user_id: targetUserId || '',
+              ficha_id: f.id,
+              intervalo_dias: 1,
+              factor_facilidad: 2.5,
+              repeticiones: 0,
+              proximo_repaso: new Date().toISOString(),
+              eliminada_por_usuario: false,
+            },
+          });
+        }
+
+        return filtradas;
       }
     } catch (e) {
       console.warn('Fallo consultando fichas_tecnicas, usando fallback:', e);
@@ -519,7 +606,18 @@ export async function getFichasTecnicas(temaIds?: number[]): Promise<FichaTecnic
             concepto: dc.concepto,
             valor_exacto: dc.valor_exacto,
             trampa_habitual: dc.trampa_habitual,
+            frente_pregunta: dc.concepto,
+            dorso_respuesta: `${dc.valor_exacto}\n\n⚠️ Trampa: ${dc.trampa_habitual}`,
             tema: temasMap.get(sec.tema_id),
+            usuarioSRS: {
+              user_id: targetUserId || '',
+              ficha_id: `sec_${sec.id}_${idx}`,
+              intervalo_dias: 1,
+              factor_facilidad: 2.5,
+              repeticiones: 0,
+              proximo_repaso: new Date().toISOString(),
+              eliminada_por_usuario: false,
+            },
           });
         });
       }
@@ -532,32 +630,24 @@ export async function getFichasTecnicas(temaIds?: number[]): Promise<FichaTecnic
 }
 
 /**
- * Elimina una ficha técnica de Supabase (o local)
- */
-export async function eliminarFichaTecnica(id: string): Promise<boolean> {
-  if (supabase && !id.startsWith('sec_')) {
-    try {
-      const { error } = await supabase.from('fichas_tecnicas').delete().eq('id', id);
-      if (!error) return true;
-      console.error('Error eliminando ficha de Supabase:', error);
-    } catch (e) {
-      console.error('Excepción eliminando ficha:', e);
-    }
-  }
-  return true;
-}
-
-/**
- * Invoca el motor de generación de fichas técnicas oficiales (/api/motor-fichas)
+ * Invoca el motor de generación de fichas técnicas oficiales (/api/motor-fichas) con tracking de tokens
  */
 export async function solicitarGeneracionFichas(
   temaId: number
 ): Promise<{ ok: boolean; fichas: FichaTecnica[]; nuevasGeneradas: number; error?: string }> {
   try {
+    let userId = getEffectiveUserId();
+    if (!userId && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id || null;
+      } catch {}
+    }
+
     const res = await fetch('/api/motor-fichas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ temaId }),
+      body: JSON.stringify({ temaId, userId }),
     });
 
     const data = await res.json();
@@ -579,6 +669,248 @@ export async function solicitarGeneracionFichas(
       nuevasGeneradas: 0,
       error: msg,
     };
+  }
+}
+
+/**
+ * Evalúa una ficha con el algoritmo Anki SM-2 (Difícil, Medio, Fácil)
+ */
+export async function evaluarFichaAnki(
+  fichaId: string,
+  calificacion: 'dificil' | 'medio' | 'facil',
+  srsActual?: UsuarioFichaSRS
+): Promise<{ ok: boolean; nuevoSRS?: UsuarioFichaSRS }> {
+  if (!supabase) return { ok: false };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const targetUserId = getEffectiveUserId() || user?.id;
+    if (!targetUserId) return { ok: false };
+
+    let intervalo = srsActual?.intervalo_dias ?? 1;
+    let factor = Number(srsActual?.factor_facilidad ?? 2.5);
+    let reps = srsActual?.repeticiones ?? 0;
+
+    let proximoDias = 1;
+    if (calificacion === 'dificil') {
+      intervalo = 1;
+      factor = Math.max(1.3, Number((factor - 0.2).toFixed(2)));
+      reps = 0;
+      proximoDias = 1;
+    } else if (calificacion === 'medio') {
+      intervalo = Math.max(3, Math.round(intervalo * 1.5));
+      reps += 1;
+      proximoDias = intervalo;
+    } else {
+      // 'facil'
+      intervalo = Math.max(7, Math.round(intervalo * factor));
+      factor = Number((factor + 0.15).toFixed(2));
+      reps += 1;
+      proximoDias = intervalo;
+    }
+
+    const proximoRepaso = new Date(Date.now() + proximoDias * 24 * 60 * 60 * 1000).toISOString();
+
+    const nuevoSRS: UsuarioFichaSRS = {
+      ...(srsActual || {}),
+      user_id: targetUserId,
+      ficha_id: fichaId,
+      intervalo_dias: intervalo,
+      factor_facilidad: factor,
+      repeticiones: reps,
+      proximo_repaso: proximoRepaso,
+      ultima_revision: new Date().toISOString(),
+      eliminada_por_usuario: false,
+    };
+
+    const { error } = await supabase
+      .from('usuario_fichas_srs')
+      .upsert(nuevoSRS, { onConflict: 'user_id,ficha_id' });
+
+    if (error) {
+      console.error('Error en evaluarFichaAnki:', error);
+      return { ok: false };
+    }
+
+    return { ok: true, nuevoSRS };
+  } catch (e) {
+    console.error('Excepción en evaluarFichaAnki:', e);
+    return { ok: false };
+  }
+}
+
+/**
+ * Guarda o actualiza la nota/regla mnemotécnica privada del usuario en una ficha
+ */
+export async function guardarNotaMnemotecnica(
+  fichaId: string,
+  nota: string
+): Promise<{ ok: boolean }> {
+  if (!supabase) return { ok: false };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const targetUserId = getEffectiveUserId() || user?.id;
+    if (!targetUserId) return { ok: false };
+
+    const { error } = await supabase.from('usuario_fichas_srs').upsert(
+      {
+        user_id: targetUserId,
+        ficha_id: fichaId,
+        nota_mnemotecnica: nota.trim(),
+      },
+      { onConflict: 'user_id,ficha_id' }
+    );
+
+    return { ok: !error };
+  } catch (e) {
+    console.error('Error en guardarNotaMnemotecnica:', e);
+    return { ok: false };
+  }
+}
+
+/**
+ * Sube una imagen mnemotécnica comprimida a Supabase Storage y actualiza usuario_fichas_srs y perfiles_usuarios
+ */
+export async function subirImagenMnemotecnica(
+  fichaId: string,
+  blobWebp: Blob
+): Promise<{ ok: boolean; url?: string; bytes?: number; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase no inicializado' };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const targetUserId = getEffectiveUserId() || user?.id;
+    if (!targetUserId) return { ok: false, error: 'No autenticado' };
+
+    const fileName = `${targetUserId}/${fichaId}_${Date.now()}.webp`;
+    const { error: uploadError } = await supabase.storage
+      .from('fichas-imagenes')
+      .upload(fileName, blobWebp, {
+        contentType: 'image/webp',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return { ok: false, error: uploadError.message };
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('fichas-imagenes')
+      .getPublicUrl(fileName);
+
+    const bytes = blobWebp.size;
+
+    await supabase.from('usuario_fichas_srs').upsert(
+      {
+        user_id: targetUserId,
+        ficha_id: fichaId,
+        imagen_url: publicUrl,
+        imagen_bytes: bytes,
+      },
+      { onConflict: 'user_id,ficha_id' }
+    );
+
+    // Sumar a bytes_almacenamiento en perfiles_usuarios
+    const { data: perfil } = await supabase
+      .from('perfiles_usuarios')
+      .select('bytes_almacenamiento')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (perfil) {
+      await supabase
+        .from('perfiles_usuarios')
+        .update({
+          bytes_almacenamiento: (Number(perfil.bytes_almacenamiento) || 0) + bytes,
+        })
+        .eq('id', targetUserId);
+    }
+
+    return { ok: true, url: publicUrl, bytes };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Error al subir foto';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Elimina una imagen mnemotécnica de Supabase Storage y descuenta los bytes
+ */
+export async function eliminarImagenMnemotecnica(
+  fichaId: string,
+  imagenUrl: string,
+  bytes: number
+): Promise<{ ok: boolean }> {
+  if (!supabase) return { ok: false };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const targetUserId = getEffectiveUserId() || user?.id;
+    if (!targetUserId) return { ok: false };
+
+    try {
+      const parts = imagenUrl.split('/fichas-imagenes/');
+      if (parts[1]) {
+        await supabase.storage.from('fichas-imagenes').remove([decodeURIComponent(parts[1])]);
+      }
+    } catch {}
+
+    await supabase
+      .from('usuario_fichas_srs')
+      .update({
+        imagen_url: null,
+        imagen_bytes: 0,
+      })
+      .eq('user_id', targetUserId)
+      .eq('ficha_id', fichaId);
+
+    const { data: perfil } = await supabase
+      .from('perfiles_usuarios')
+      .select('bytes_almacenamiento')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (perfil) {
+      await supabase
+        .from('perfiles_usuarios')
+        .update({
+          bytes_almacenamiento: Math.max(0, (Number(perfil.bytes_almacenamiento) || 0) - bytes),
+        })
+        .eq('id', targetUserId);
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Elimina una ficha técnica (marcada para el usuario o borrada definitivamente si es Admin)
+ */
+export async function eliminarFichaUsuario(
+  fichaId: string,
+  esAdminYDefinitivo: boolean = false
+): Promise<{ ok: boolean }> {
+  if (!supabase) return { ok: true };
+  try {
+    if (esAdminYDefinitivo) {
+      const { error } = await supabase.from('fichas_tecnicas').delete().eq('id', fichaId);
+      return { ok: !error };
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      const targetUserId = getEffectiveUserId() || user?.id;
+      if (!targetUserId) return { ok: false };
+
+      const { error } = await supabase.from('usuario_fichas_srs').upsert(
+        {
+          user_id: targetUserId,
+          ficha_id: fichaId,
+          eliminada_por_usuario: true,
+        },
+        { onConflict: 'user_id,ficha_id' }
+      );
+      return { ok: !error };
+    }
+  } catch {
+    return { ok: false };
   }
 }
 
@@ -612,7 +944,6 @@ export async function votarPregunta(
       }
     }
 
-    // Fallback vía endpoint con privilegios administrativos
     const res = await fetch('/api/admin/preguntas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -622,7 +953,6 @@ export async function votarPregunta(
     return { ok: res.ok, error: data.error };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error al registrar valoración';
-    console.error('Error en votarPregunta:', msg);
     return { ok: false, error: msg };
   }
 }
@@ -639,7 +969,6 @@ export async function eliminarPregunta(
       if (!error) return { ok: true };
     }
 
-    // Fallback API server-side
     const res = await fetch('/api/admin/preguntas', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -649,7 +978,6 @@ export async function eliminarPregunta(
     return { ok: res.ok, error: data.error };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error eliminando pregunta';
-    console.error('Error en eliminarPregunta:', msg);
     return { ok: false, error: msg };
   }
 }
@@ -669,7 +997,6 @@ export async function resetearVotosPregunta(
       if (!error) return { ok: true };
     }
 
-    // Fallback API server-side
     const res = await fetch('/api/admin/preguntas', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -679,9 +1006,155 @@ export async function resetearVotosPregunta(
     return { ok: res.ok, error: data.error };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error reseteando votos';
-    console.error('Error en resetearVotosPregunta:', msg);
     return { ok: false, error: msg };
   }
 }
+
+/**
+ * Funciones de Administración: Lista de usuarios, bloqueo y memoria
+ */
+export async function getPerfilesUsuariosAdmin(): Promise<PerfilUsuario[]> {
+  if (!supabase) return [];
+  try {
+    const { data: perfiles, error } = await supabase
+      .from('perfiles_usuarios')
+      .select('*')
+      .order('ultima_conexion', { ascending: false });
+
+    if (error || !perfiles) return [];
+
+    // Hidratar con métricas de historial_sesiones
+    const { data: sesiones } = await supabase
+      .from('historial_sesiones')
+      .select('user_id, preguntas_respondidas, aciertos');
+
+    const mapaMetricas = new Map<string, { total: number; aciertos: number }>();
+    if (sesiones) {
+      sesiones.forEach((s) => {
+        if (!s.user_id) return;
+        const prev = mapaMetricas.get(s.user_id) || { total: 0, aciertos: 0 };
+        mapaMetricas.set(s.user_id, {
+          total: prev.total + (s.preguntas_respondidas || 0),
+          aciertos: prev.aciertos + (s.aciertos || 0),
+        });
+      });
+    }
+
+    return perfiles.map((p) => {
+      const stats = mapaMetricas.get(p.id);
+      const pct = stats && stats.total > 0 ? Math.round((stats.aciertos / stats.total) * 100) : 0;
+      return {
+        ...p,
+        preguntas_respondidas: stats?.total || 0,
+        porcentaje_aciertos: pct,
+      };
+    });
+  } catch (e) {
+    console.error('Error en getPerfilesUsuariosAdmin:', e);
+    return [];
+  }
+}
+
+export async function toggleBloquearUsuario(
+  userId: string,
+  bloquear: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('perfiles_usuarios')
+        .update({ bloqueado: bloquear })
+        .eq('id', userId);
+      if (!error) return { ok: true };
+    }
+    const res = await fetch('/api/admin/usuarios', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, bloquear }),
+    });
+    const d = await res.json();
+    return { ok: res.ok, error: d.error };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Error al bloquear usuario';
+    return { ok: false, error: msg };
+  }
+}
+
+export async function eliminarPerfilUsuario(
+  userId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/usuarios', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const d = await res.json();
+    return { ok: res.ok, error: d.error };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Error al eliminar usuario';
+    return { ok: false, error: msg };
+  }
+}
+
+export async function getUsoMemoriaSupabase(): Promise<UsoMemoriaSupabase> {
+  const defaults: UsoMemoriaSupabase = {
+    dbBytes: 15 * 1024 * 1024,
+    dbMB: 15,
+    dbMaxMB: 500,
+    storageBytes: 0,
+    storageMB: 0,
+    storageMaxMB: 1000,
+  };
+
+  if (!supabase) return defaults;
+  try {
+    const { data, error } = await supabase.rpc('obtener_uso_memoria_supabase');
+    if (!error && data) {
+      return data as UsoMemoriaSupabase;
+    }
+
+    // Fallback: estimar bytes desde perfiles y tablas
+    const { data: perfiles } = await supabase
+      .from('perfiles_usuarios')
+      .select('bytes_almacenamiento');
+
+    const totalStorageBytes = (perfiles || []).reduce(
+      (acc, p) => acc + (Number(p.bytes_almacenamiento) || 0),
+      0
+    );
+
+    const { count: countPreguntas } = await supabase
+      .from('preguntas')
+      .select('id', { count: 'exact', head: true });
+    const { count: countFichas } = await supabase
+      .from('fichas_tecnicas')
+      .select('id', { count: 'exact', head: true });
+    const { count: countSecciones } = await supabase
+      .from('secciones_temario')
+      .select('id', { count: 'exact', head: true });
+
+    const estimatedDBBytes =
+      (countPreguntas || 0) * 4000 +
+      (countFichas || 0) * 1000 +
+      (countSecciones || 0) * 50000 +
+      14 * 1024 * 1024;
+
+    const dbMB = Number((estimatedDBBytes / (1024 * 1024)).toFixed(2));
+    const storageMB = Number((totalStorageBytes / (1024 * 1024)).toFixed(2));
+
+    return {
+      dbBytes: estimatedDBBytes,
+      dbMB,
+      dbMaxMB: 500,
+      storageBytes: totalStorageBytes,
+      storageMB,
+      storageMaxMB: 1000,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 
 

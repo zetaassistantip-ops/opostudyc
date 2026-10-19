@@ -105,7 +105,51 @@ export interface FichaTecnica {
   valor_exacto: string;
   trampa_habitual: string;
   categoria_dato?: string;
+  frente_pregunta?: string;
+  dorso_respuesta?: string;
   created_at?: string;
   tema?: Tema;
+  usuarioSRS?: UsuarioFichaSRS;
+}
+
+export interface UsuarioFichaSRS {
+  id?: string;
+  user_id: string;
+  ficha_id: string;
+  nota_mnemotecnica?: string | null;
+  imagen_url?: string | null;
+  imagen_bytes?: number;
+  intervalo_dias: number;
+  factor_facilidad: number;
+  repeticiones: number;
+  proximo_repaso: string;
+  ultima_revision?: string;
+  eliminada_por_usuario?: boolean;
+}
+
+export interface PerfilUsuario {
+  id: string;
+  email: string;
+  nombre?: string;
+  avatar_url?: string;
+  es_admin?: boolean;
+  bloqueado?: boolean;
+  tokens_consumidos?: number;
+  coste_estimado_eur?: number;
+  bytes_almacenamiento?: number;
+  ultima_conexion?: string;
+  created_at?: string;
+  // Campos calculados para admin
+  preguntas_respondidas?: number;
+  porcentaje_aciertos?: number;
+}
+
+export interface UsoMemoriaSupabase {
+  dbBytes: number;
+  dbMB: number;
+  dbMaxMB: number;
+  storageBytes: number;
+  storageMB: number;
+  storageMaxMB: number;
 }
 

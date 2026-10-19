@@ -15,6 +15,7 @@ import {
   BookOpen,
   Filter,
   Target,
+  Crown,
 } from 'lucide-react';
 import { Tema, Pregunta, EstadisticasGlobales, SesionEstudio } from '@/lib/types';
 import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from '@/lib/supabase';
@@ -26,7 +27,7 @@ import ModalSimulacroConfig from '@/components/ModalSimulacroConfig';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPrincipal() {
-  const { user } = useAuth();
+  const { user, esAdmin } = useAuth();
   const [temas, setTemas] = useState<Tema[]>([]);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
@@ -165,14 +166,16 @@ export default function DashboardPrincipal() {
         {/* Acciones de usuario, descargar app, admin y racha */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <BotonInstalarApp />
-          <Link
-            href="/admin"
-            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-slate-800 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-            title="Panel de Administración y Moderación de Preguntas"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-slate-900" />
-            <span className="hidden sm:inline font-mono text-[11px]">Admin</span>
-          </Link>
+          {esAdmin && (
+            <Link
+              href="/admin"
+              className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-amber-50 hover:bg-amber-100 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-amber-950 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+              title="Panel de Superadministrador"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-700" />
+              <span className="hidden sm:inline font-mono text-[11px]">Admin</span>
+            </Link>
+          )}
           <button
             onClick={() => setModalRachaAbierto(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-slate-900 text-xs font-mono font-bold transition-all cursor-pointer"

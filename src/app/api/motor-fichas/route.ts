@@ -7,6 +7,7 @@ export const maxDuration = 60;
 
 interface MotorFichasRequest {
   temaId: number;
+  userId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { temaId } = body;
+    const { temaId, userId } = body;
 
     if (!temaId || typeof temaId !== 'number') {
       return NextResponse.json(
@@ -94,20 +95,16 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey: geminiKey });
 
     const systemInstruction = `Actúa como preparador experto del Cuerpo de Bomberos de la Comunidad de Madrid.
-Genera 10 NUEVAS Fichas Técnicas de estudio ultraconcretas para el Tema ${tema.id}: ${tema.titulo}.
+Genera 10 NUEVAS Fichas Técnicas interactivas estilo Anki (formato doble cara) de estudio ultraconcretas para el Tema ${tema.id}: ${tema.titulo}.
 
-REGLA DE ORO (PROHIBIDO TEXTO DE RELLENO):
-- Prohibido generar conceptos vagos, definiciones largas o resúmenes genéricos.
-- Cada ficha DEBE ser un DATO PURO DE EXAMEN (Asociación binaria directa):
-  * En temas legislativos: Plazos exactos (días hábiles/naturales), artículos clave, mayorías parlamentarias, número de miembros de órganos o competencias exclusivas.
-  * En temas técnicos/fuego/hidráulica/construcción: Cifras exactas, presiones en bar/kPa, caudales en l/min, temperaturas, códigos de normas UNE/EN, euroclases de reacción/resistencia al fuego (REI/EI) o fórmulas.
-  * En temas de geografía/territorio CAM: Altitudes exactas de picos, longitudes/márgenes de ríos y afluentes, códigos de carreteras de la CAM (M-xxx) o niveles de emergencia PLATERCAM/INFOMA.
-
-Estructura de cada ficha:
-- "concepto": Pregunta o asociación directa y específica (ej. "Longitud máxima de manguera en BIE de 45 mm según RIPCI").
-- "valor_exacto": El dato escueto y directo al grano (ej. "20 metros").
-- "trampa_habitual": Con qué dato lo suele confundir el tribunal en el test (ej. "No confundir con los 30 metros de la BIE de 25 mm").
-- "categoria_dato": Etiqueta breve (ej. "Normativa", "Cifra Técnica", "Plazo", "Presión", "Geografía").
+REGLA DE ORO:
+- Cada ficha debe ser un reto binario de examen oficial.
+- "frente_pregunta": Pregunta directa o reto de examen (ej. "¿Qué presión de prueba y caudal mínimo exige la norma para una BIE de 45 mm?").
+- "dorso_respuesta": Solución técnica estructurada con el dato exacto, norma aplicable y matiz pedagógico.
+- "concepto": Nombre del concepto clave escueto (ej. "BIE 45 mm: Presión y Caudal").
+- "valor_exacto": El dato numérico o norma concisa (ej. "Presión: 3,5 bar entrada | Caudal: 200 l/min | UNE-EN 671-1").
+- "trampa_habitual": Con qué dato lo suele confundir el tribunal en el test (ej. "No confundir con los 100 l/min a 3 bar de la BIE de 25 mm").
+- "categoria_dato": Etiqueta breve (ej. "Normativa", "Presión / Caudal", "Plazo", "Geografía").
 
 LISTA DE FICHAS YA EXISTENTES (NO REPETIR NINGUNA):
 ---
@@ -119,15 +116,17 @@ ${listaExclusion}
 TEXTO Y BASE NORMATIVA DISPONIBLE:
 ${textoBase}
 
-Genera EXACTAMENTE 10 Fichas Técnicas de alta precisión.
+Genera EXACTAMENTE 10 Fichas Técnicas de alta precisión estilo Anki.
 Devuelve ÚNICAMENTE un JSON válido con este formato:
 {
   "fichas": [
     {
-      "concepto": "...",
-      "valor_exacto": "...",
-      "trampa_habitual": "...",
-      "categoria_dato": "..."
+      "frente_pregunta": "¿Pregunta o reto directo sobre el dato oficial?",
+      "dorso_respuesta": "Respuesta técnica estructurada con datos oficiales...",
+      "concepto": "Nombre breve del concepto",
+      "valor_exacto": "Dato o cifra exacta",
+      "trampa_habitual": "Trampa de examen o confusión típica",
+      "categoria_dato": "Etiqueta"
     }
   ]
 }`;
@@ -144,8 +143,47 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       },
     });
 
+    // Tracking de tokens y coste en euros
+    try {
+      const usage = response.usageMetadata;
+      const tokens =
+        usage?.totalTokenCount ||
+        ((usage?.promptTokenCount || 0) + (usage?.candidatesTokenCount || 0)) ||
+        0;
+      const costeEur = tokens * 0.00000035;
+
+      if (userId && tokens > 0) {
+        const { data: perfil } = await supabase
+          .from('perfiles_usuarios')
+          .select('tokens_consumidos, coste_estimado_eur')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (perfil) {
+          await supabase
+            .from('perfiles_usuarios')
+            .update({
+              tokens_consumidos: (Number(perfil.tokens_consumidos) || 0) + tokens,
+              coste_estimado_eur: (Number(perfil.coste_estimado_eur) || 0) + costeEur,
+            })
+            .eq('id', userId);
+        }
+      }
+    } catch (e) {
+      console.warn('Aviso registrando tokens consumidos:', e);
+    }
+
     const responseText = response.text || '';
-    let parsed: { fichas?: Array<{ concepto: string; valor_exacto: string; trampa_habitual: string; categoria_dato?: string }> };
+    let parsed: {
+      fichas?: Array<{
+        frente_pregunta?: string;
+        dorso_respuesta?: string;
+        concepto: string;
+        valor_exacto: string;
+        trampa_habitual: string;
+        categoria_dato?: string;
+      }>;
+    };
 
     try {
       parsed = JSON.parse(responseText);
@@ -167,13 +205,17 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       );
     }
 
-    // 5. Insertar las 10 fichas en Supabase
+    // 5. Insertar las 10 fichas en Supabase con estructura Anki
     const paraInsertar = fichasGeneradas.slice(0, 10).map((f) => ({
       tema_id: temaId,
       concepto: f.concepto.trim(),
       valor_exacto: f.valor_exacto.trim(),
       trampa_habitual: f.trampa_habitual.trim(),
       categoria_dato: f.categoria_dato?.trim() || null,
+      frente_pregunta: f.frente_pregunta?.trim() || f.concepto.trim(),
+      dorso_respuesta:
+        f.dorso_respuesta?.trim() ||
+        `${f.valor_exacto.trim()}.${f.trampa_habitual ? `\n\n⚠️ Ojo: ${f.trampa_habitual.trim()}` : ''}`,
     }));
 
     const { data: insertadas, error: errorInsert } = await supabase
@@ -185,7 +227,7 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       console.error('Error insertando fichas_tecnicas en Supabase:', errorInsert);
       return NextResponse.json(
         {
-          error: `Error guardando en Supabase: ${errorInsert.message}. Asegúrate de ejecutar el script de creación de tabla fichas_tecnicas.`,
+          error: `Error guardando en Supabase: ${errorInsert.message}.`,
           fichasEnMemoria: paraInsertar,
         },
         { status: 500 }

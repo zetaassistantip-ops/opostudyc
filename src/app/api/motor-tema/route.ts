@@ -148,7 +148,10 @@ Al menos 1 o 2 preguntas deben buscar la opción falsa o incorrecta (ej.: "¿Cu�
 Extrae una subcadena LITERAL e IDÉNTICA (copia exacta de entre 8 y 22 palabras, SIN asteriscos ** ni almohadillas #) que demuestre la respuesta.
 
 7. EXPLICACIÓN DEL PROFESOR (explicacion_profesor):
-Sé directo, quirúrgico y pedagógico. Cita el dato clave y desglosa en una línea la trampa de los distractores.`;
+Debe seguir OBLIGATORIAMENTE esta estructura pedagógica en 3 partes (usando saltos de línea claros y estos encabezados exactos):
+- **✅ Por qué es la correcta:** Explicación directa citando el dato/norma exacta.
+- **⚠️ Por qué fallan las demás (La Trampa):** Explicación explícita de por qué las otras opciones son falsas o qué trampa contienen.
+- **🚒 Ejemplo práctico / Regla mnemotécnica:** Un caso práctico real de intervención de bomberos o un truco visual/mnemotécnico breve para no olvidarlo nunca.`;
 
     const textoBase = seccionPrincipal?.contenido_markdown
       ? seccionPrincipal.contenido_markdown.slice(0, 18000)
@@ -178,7 +181,7 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       "enunciado": "Enunciado riguroso de examen...",
       "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
       "respuesta_correcta": 0,
-      "explicacion_profesor": "Por qué es correcta y trampa de las falsas...",
+      "explicacion_profesor": "**✅ Por qué es la correcta:** Explicación precisa...\\n\\n**⚠️ Por qué fallan las demás (La Trampa):** Desglose de trampas...\\n\\n**🚒 Ejemplo práctico / Regla mnemotécnica:** Caso de intervención o mnemotecnia...",
       "cita_exacta": "Frase literal idéntica sin formato...",
       "dato_clave_etiqueta": "Plazo / Cifra / Norma"
     }

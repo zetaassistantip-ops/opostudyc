@@ -38,6 +38,11 @@ export interface Pregunta {
   ultima_vez_vista: string | null;
   created_at?: string;
   
+  // Valoraciones de usuarios
+  votos_buena?: number;
+  votos_regular?: number;
+  votos_mala?: number;
+
   // Enlaces hidratados opcionales
   seccion?: SeccionTemario;
   tema?: Tema;

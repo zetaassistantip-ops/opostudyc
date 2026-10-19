@@ -32,6 +32,7 @@ export default function DashboardPrincipal() {
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
   const [modalRachaAbierto, setModalRachaAbierto] = useState(false);
   const [modalSimulacroAbierto, setModalSimulacroAbierto] = useState(false);
+  const [temaSeleccionadoParaTest, setTemaSeleccionadoParaTest] = useState<number | null>(null);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState<string>('');
 
@@ -161,9 +162,17 @@ export default function DashboardPrincipal() {
           </div>
         </div>
 
-        {/* Acciones de usuario, descargar app y racha */}
+        {/* Acciones de usuario, descargar app, admin y racha */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <BotonInstalarApp />
+          <Link
+            href="/admin"
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-slate-800 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+            title="Panel de Administración y Moderación de Preguntas"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-slate-900" />
+            <span className="hidden sm:inline font-mono text-[11px]">Admin</span>
+          </Link>
           <button
             onClick={() => setModalRachaAbierto(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/90 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] text-slate-900 text-xs font-mono font-bold transition-all cursor-pointer"
@@ -272,7 +281,10 @@ export default function DashboardPrincipal() {
       {/* 3.1 BOTÓN DESTACADO: TEST GENERAL / SIMULACRO */}
       <button
         type="button"
-        onClick={() => setModalSimulacroAbierto(true)}
+        onClick={() => {
+          setTemaSeleccionadoParaTest(null);
+          setModalSimulacroAbierto(true);
+        }}
         className="w-full p-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-between text-white group cursor-pointer"
       >
         <div className="flex items-center gap-3">
@@ -406,15 +418,19 @@ export default function DashboardPrincipal() {
                   </div>
                 </div>
 
-                {/* Botón Entrenar Tema */}
-                <Link
-                  href={`/jugar?modo=tema&temaId=${tema.id}`}
+                {/* Botón Entrenar Tema con modal configurador */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemaSeleccionadoParaTest(tema.id);
+                    setModalSimulacroAbierto(true);
+                  }}
                   className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-slate-900 text-[11px] font-mono font-bold transition-all flex items-center gap-1 flex-shrink-0 cursor-pointer"
-                  title={`Test Tema ${tema.id}`}
+                  title={`Configurar Test Tema ${tema.id}`}
                 >
                   <span>Test</span>
                   <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+                </button>
               </div>
             );
           })}
@@ -447,11 +463,16 @@ export default function DashboardPrincipal() {
         sesiones={sesiones}
       />
 
-      {/* Modal de Configuración de Simulacro / Test General */}
+      {/* Modal de Configuración de Simulacro / Test General y por Tema */}
       <ModalSimulacroConfig
         abierto={modalSimulacroAbierto}
-        onCerrar={() => setModalSimulacroAbierto(false)}
+        onCerrar={() => {
+          setModalSimulacroAbierto(false);
+          setTemaSeleccionadoParaTest(null);
+        }}
         temas={temas}
+        preguntas={preguntas}
+        temaInicial={temaSeleccionadoParaTest}
       />
     </div>
   );

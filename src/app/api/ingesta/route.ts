@@ -44,7 +44,10 @@ Genera una batería exhaustiva de preguntas tipo test de 4 opciones aplicando es
    - Extrae una subcadena LITERAL e IDÉNTICA (copia exacta carácter por carácter, de entre 8 y 22 palabras, SIN signos de formato Markdown como asteriscos ** o almohadillas #) que exista dentro de tu propio "contenido_markdown" y demuestre la respuesta.
 
 6. EXPLICACIÓN DEL PROFESOR (explicacion_profesor):
-   - Sé directo, quirúrgico y pedagógico. Empieza indicando por qué la correcta es verdadera citando el dato/artículo clave, y desglosa en una línea qué trampa específica contiene cada uno de los distractores.`;
+   - Debe seguir OBLIGATORIAMENTE esta estructura pedagógica en 3 partes (usando saltos de línea claros y estos encabezados exactos):
+     - **✅ Por qué es la correcta:** Explicación directa citando el dato/norma exacta.
+     - **⚠️ Por qué fallan las demás (La Trampa):** Explicación explícita de por qué las otras opciones son falsas o qué trampa contienen.
+     - **🚒 Ejemplo práctico / Regla mnemotécnica:** Un caso práctico real de intervención de bomberos o un truco visual/mnemotécnico breve para no olvidarlo nunca.`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -93,7 +96,7 @@ Devuelve ÚNICAMENTE un JSON válido con la siguiente estructura exacta:
       "enunciado": "Pregunta maliciosa de examen oficial...",
       "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
       "respuesta_correcta": 0,
-      "explicacion_profesor": "Por qué la correcta lo es y trampa de las otras...",
+      "explicacion_profesor": "**✅ Por qué es la correcta:** Explicación precisa...\\n\\n**⚠️ Por qué fallan las demás (La Trampa):** Desglose de trampas...\\n\\n**🚒 Ejemplo práctico / Regla mnemotécnica:** Caso de bomberos o regla mnemotécnica...",
       "cita_exacta": "Frase literal idéntica de entre 10 y 25 palabras del markdown...",
       "dato_clave_etiqueta": "Plazo / Cifra / Norma"
     }

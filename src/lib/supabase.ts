@@ -102,34 +102,43 @@ export async function getPreguntas(temaId?: number): Promise<Pregunta[]> {
               .select('*')
               .eq('user_id', user.id);
 
-            if (userProgress && userProgress.length > 0) {
-              const progressMap = new Map(userProgress.map((up) => [up.pregunta_id, up]));
-              const preguntasPersonalizadas = rawPreguntas.map((p) => {
-                const prog = progressMap.get(p.id);
-                if (prog) {
-                  return {
-                    ...p,
-                    caja_leitner: prog.caja_leitner ?? 0,
-                    proxima_revision: prog.proxima_revision || new Date().toISOString(),
-                    fallos_totales: prog.fallos_totales ?? 0,
-                    aciertos_consecutivos: prog.aciertos_consecutivos ?? 0,
-                    ultima_vez_vista: prog.ultima_vez_vista,
-                  };
-                }
+            const progressMap = new Map((userProgress || []).map((up) => [up.pregunta_id, up]));
+            const preguntasPersonalizadas = rawPreguntas.map((p) => {
+              const prog = progressMap.get(p.id);
+              if (prog) {
                 return {
                   ...p,
-                  caja_leitner: 0,
-                  proxima_revision: new Date().toISOString(),
-                  fallos_totales: 0,
-                  aciertos_consecutivos: 0,
-                  ultima_vez_vista: null,
+                  caja_leitner: prog.caja_leitner ?? 0,
+                  proxima_revision: prog.proxima_revision || new Date().toISOString(),
+                  fallos_totales: prog.fallos_totales ?? 0,
+                  aciertos_consecutivos: prog.aciertos_consecutivos ?? 0,
+                  ultima_vez_vista: prog.ultima_vez_vista,
+                  votos_buena: p.votos_buena ?? 0,
+                  votos_regular: p.votos_regular ?? 0,
+                  votos_mala: p.votos_mala ?? 0,
                 };
-              });
-              return preguntasPersonalizadas as Pregunta[];
-            }
+              }
+              return {
+                ...p,
+                caja_leitner: 0,
+                proxima_revision: new Date().toISOString(),
+                fallos_totales: 0,
+                aciertos_consecutivos: 0,
+                ultima_vez_vista: null,
+                votos_buena: p.votos_buena ?? 0,
+                votos_regular: p.votos_regular ?? 0,
+                votos_mala: p.votos_mala ?? 0,
+              };
+            });
+            return preguntasPersonalizadas as Pregunta[];
           }
 
-          return rawPreguntas as Pregunta[];
+          return rawPreguntas.map((p) => ({
+            ...p,
+            votos_buena: p.votos_buena ?? 0,
+            votos_regular: p.votos_regular ?? 0,
+            votos_mala: p.votos_mala ?? 0,
+          })) as Pregunta[];
         }
       }
     } catch (e) {
@@ -572,4 +581,107 @@ export async function solicitarGeneracionFichas(
     };
   }
 }
+
+/**
+ * Incrementa en +1 el voto ('buena', 'regular', 'mala') para una pregunta
+ */
+export async function votarPregunta(
+  preguntaId: string,
+  tipo: 'buena' | 'regular' | 'mala'
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const columna = tipo === 'buena' ? 'votos_buena' : tipo === 'regular' ? 'votos_regular' : 'votos_mala';
+
+    if (supabase) {
+      const { data: preg } = await supabase
+        .from('preguntas')
+        .select('votos_buena, votos_regular, votos_mala')
+        .eq('id', preguntaId)
+        .single();
+
+      if (preg) {
+        const actual = (preg as Record<string, number>)[columna] || 0;
+        const { error: errUpdate } = await supabase
+          .from('preguntas')
+          .update({ [columna]: actual + 1 })
+          .eq('id', preguntaId);
+
+        if (!errUpdate) {
+          return { ok: true };
+        }
+      }
+    }
+
+    // Fallback vía endpoint con privilegios administrativos
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preguntaId, tipo }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al registrar valoración';
+    console.error('Error en votarPregunta:', msg);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Elimina permanentemente una pregunta de la base de datos
+ */
+export async function eliminarPregunta(
+  preguntaId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (supabase) {
+      const { error } = await supabase.from('preguntas').delete().eq('id', preguntaId);
+      if (!error) return { ok: true };
+    }
+
+    // Fallback API server-side
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: preguntaId }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error eliminando pregunta';
+    console.error('Error en eliminarPregunta:', msg);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Resetea los contadores de votos de una pregunta a cero
+ */
+export async function resetearVotosPregunta(
+  preguntaId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('preguntas')
+        .update({ votos_buena: 0, votos_regular: 0, votos_mala: 0 })
+        .eq('id', preguntaId);
+      if (!error) return { ok: true };
+    }
+
+    // Fallback API server-side
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: preguntaId }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error reseteando votos';
+    console.error('Error en resetearVotosPregunta:', msg);
+    return { ok: false, error: msg };
+  }
+}
+
 

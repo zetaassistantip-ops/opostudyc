@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Flame, BookOpen, Zap, UploadCloud } from 'lucide-react';
+import { Flame, BookOpen, Zap, ShieldCheck } from 'lucide-react';
 
 interface BottomNavProps {
   badgeRepaso?: number;
@@ -30,6 +30,12 @@ export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
       label: 'Fichas Clave',
       icon: Zap,
       active: pathname.startsWith('/chuleta'),
+    },
+    {
+      href: '/admin',
+      label: 'Admin',
+      icon: ShieldCheck,
+      active: pathname.startsWith('/admin'),
     },
   ];
 

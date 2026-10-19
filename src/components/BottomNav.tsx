@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Flame, BookOpen, Zap, Crown } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { Flame, BookOpen, Zap, BarChart3 } from 'lucide-react';
 
 interface BottomNavProps {
   badgeRepaso?: number;
@@ -11,7 +10,6 @@ interface BottomNavProps {
 
 export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
   const pathname = usePathname();
-  const { esAdmin } = useAuth();
 
   const navItems = [
     {
@@ -28,21 +26,17 @@ export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
       badge: badgeRepaso && badgeRepaso > 0 ? String(badgeRepaso) : undefined,
     },
     {
-      href: '/chuleta',
+      href: '/fichas',
       label: 'Fichas Clave',
       icon: Zap,
-      active: pathname.startsWith('/chuleta'),
+      active: pathname.startsWith('/fichas') || pathname.startsWith('/chuleta'),
     },
-    ...(esAdmin
-      ? [
-          {
-            href: '/admin',
-            label: 'Admin',
-            icon: Crown,
-            active: pathname.startsWith('/admin'),
-          },
-        ]
-      : []),
+    {
+      href: '/estadisticas',
+      label: 'Estadísticas',
+      icon: BarChart3,
+      active: pathname.startsWith('/estadisticas'),
+    },
   ];
 
   return (

@@ -9,6 +9,7 @@ interface MotorTemaRequest {
   temaId: number;
   forzarGeneracion?: boolean;
   userId?: string;
+  cantidad?: number;
 }
 
 export async function POST(req: NextRequest) {
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { temaId, forzarGeneracion = false, userId } = body;
+    const { temaId, forzarGeneracion = false, userId, cantidad = 6 } = body;
+    const numGenerar = Math.max(1, Math.min(10, Number(cantidad) || 6));
 
     if (!temaId || typeof temaId !== 'number') {
       return NextResponse.json(
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
       : 'Ninguna pregunta generada todavía en la base de datos para este tema.';
 
     const systemInstruction = `Actúa como Catedrático en Psicometría y Presidente del Tribunal Calificador de las oposiciones del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
-Tu objetivo es generar un lote ultrarrápido y concentrado de EXACTAMENTE 6 preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas en el temario oficial.
+Tu objetivo es generar un lote ultrarrápido y concentrado de EXACTAMENTE ${numGenerar} preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas en el temario oficial.
 
 REGLAS INQUEBRANTABLES:
 1. REGLA CRÍTICA DE NO DUPLICACIÓN:
@@ -283,8 +285,8 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       if (nuevaSec) seccionPrincipal = nuevaSec;
     }
 
-    // 5. Mapear e insertar el lote de 6 preguntas en Supabase
-    const preguntasParaInsertar = preguntasGeneradas.slice(0, 6).map((p) => ({
+    // 5. Mapear e insertar el lote de preguntas en Supabase
+    const preguntasParaInsertar = preguntasGeneradas.slice(0, numGenerar).map((p) => ({
       tema_id: temaId,
       seccion_id: seccionPrincipal?.id || null,
       enunciado: p.enunciado.trim(),

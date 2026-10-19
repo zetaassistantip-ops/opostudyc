@@ -94,17 +94,36 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
 
-    const systemInstruction = `Actúa como preparador experto del Cuerpo de Bomberos de la Comunidad de Madrid.
-Genera 10 NUEVAS Fichas Técnicas interactivas estilo Anki (formato doble cara) de estudio ultraconcretas para el Tema ${tema.id}: ${tema.titulo}.
+    const systemInstruction = `Actúa como Catedrático y Preparador de Élite del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
+Tu objetivo es generar Fichas Técnicas estilo Anki (formato doble cara) de MÁXIMA CALIDAD PEDAGÓGICA Y SENTIDO COMPLETO para el Tema ${tema.id}: ${tema.titulo}.
 
-REGLA DE ORO:
-- Cada ficha debe ser un reto binario de examen oficial.
-- "frente_pregunta": Pregunta directa o reto de examen (ej. "¿Qué presión de prueba y caudal mínimo exige la norma para una BIE de 45 mm?").
-- "dorso_respuesta": Solución técnica estructurada con el dato exacto, norma aplicable y matiz pedagógico.
-- "concepto": Nombre del concepto clave escueto (ej. "BIE 45 mm: Presión y Caudal").
-- "valor_exacto": El dato numérico o norma concisa (ej. "Presión: 3,5 bar entrada | Caudal: 200 l/min | UNE-EN 671-1").
-- "trampa_habitual": Con qué dato lo suele confundir el tribunal en el test (ej. "No confundir con los 100 l/min a 3 bar de la BIE de 25 mm").
-- "categoria_dato": Etiqueta breve (ej. "Normativa", "Presión / Caudal", "Plazo", "Geografía").
+PROHIBICIONES CRÍTICAS:
+- PROHIBIDO generar títulos o conceptos genéricos como "Dato técnico en...", "Normativa de...", "Artículo 5".
+- PROHIBIDO generar respuestas huérfanas como "15 años", "3,5 bar", "6 meses" sin contexto gramatical que explique qué significa esa cifra.
+- PROHIBIDO usar preguntas incompletas o telegráficas.
+
+TIPOS DE FICHA OBLIGATORIOS (tipo_ficha):
+Cada ficha debe pertenecer OBLIGATORIAMENTE a uno de estos dos tipos:
+
+1. "tabla" (Agrupación de Tablas, Escalas o Clasificaciones):
+   - Aplica cuando el temario describe una tabla, escala, clasificación o catálogo normativo (ejemplos: Euroclases de reacción al fuego A1-F, clases de fuego A-F, presiones/caudales de BIEs de 25 y 45 mm, dotaciones mínimas de extintores según superficie/uso, épocas de peligro y fechas del Plan INFOMA, clasificación de túneles, cotas y puertos de montaña).
+   - REGLA: NO despieces los datos en 10 fichas sueltas. Crea UNA ÚNICA FICHA donde:
+     * "frente_pregunta": Pregunta por la tabla, clasificación o escala completa (ej: "¿Cuáles son las épocas de peligro del Plan INFOMA y qué fechas exactas comprende cada una?").
+     * "dorso_respuesta": Muestra la tabla o lista completa perfectamente estructurada en Markdown, comparando las categorías con sus valores exactos.
+     * "concepto": Nombre descriptivo de la tabla/clasificación (ej: "INFOMA: Épocas de Peligro y Fechas").
+     * "valor_exacto": Resumen sintético del rango o clave clasificatoria.
+     * "trampa_habitual": La confusión típica que pone el tribunal entre categorías.
+     * "categoria_dato": "Tabla / Clasificación"
+
+2. "concepto" (Pregunta Quirúrgica Contextualizada):
+   - Aplica a datos críticos puntuales de alta exigencia (artículos clave, plazos, presiones, distancias, composiciones).
+   - REGLA:
+     * "frente_pregunta": Debe ser una PREGUNTA COMPLETA que incluya la norma/reglamento y qué se pregunta exactamente (ej: "Según el RIPCI (RD 513/2017), ¿a qué presión máxima debe someterse una prueba hidrostática de manguera de extinción y durante cuánto tiempo?").
+     * "dorso_respuesta": Debe responder con la cifra/concepto EXACTO y CONTEXTUALIZADO (ej: "Presión de prueba: 15 bar durante 5 minutos según UNE 23091, sin que se produzcan fugas ni deformaciones permanentes.").
+     * "concepto": Nombre técnico conciso del dato (ej: "RIPCI: Prueba de Presión Hidrostática de Mangueras").
+     * "valor_exacto": La cifra o término exacto.
+     * "trampa_habitual": La trampa clásica de test del tribunal.
+     * "categoria_dato": Etiqueta breve (ej. "Normativa", "Hidráulica", "Legislación").
 
 LISTA DE FICHAS YA EXISTENTES (NO REPETIR NINGUNA):
 ---
@@ -116,16 +135,17 @@ ${listaExclusion}
 TEXTO Y BASE NORMATIVA DISPONIBLE:
 ${textoBase}
 
-Genera EXACTAMENTE 10 Fichas Técnicas de alta precisión estilo Anki.
+Genera EXACTAMENTE 8 Fichas Técnicas de alta precisión estilo Anki (combina fichas de tipo "tabla" si hay clasificaciones/escalas en el texto y fichas de tipo "concepto" para datos quirúrgicos).
 Devuelve ÚNICAMENTE un JSON válido con este formato:
 {
   "fichas": [
     {
-      "frente_pregunta": "¿Pregunta o reto directo sobre el dato oficial?",
-      "dorso_respuesta": "Respuesta técnica estructurada con datos oficiales...",
-      "concepto": "Nombre breve del concepto",
-      "valor_exacto": "Dato o cifra exacta",
-      "trampa_habitual": "Trampa de examen o confusión típica",
+      "tipo_ficha": "tabla" o "concepto",
+      "frente_pregunta": "¿Pregunta completa con contexto normativo y exactitud?",
+      "dorso_respuesta": "Solución completa estructurada (en tabla markdown o texto contextualizado)...",
+      "concepto": "Título descriptivo no genérico",
+      "valor_exacto": "Dato o resumen clave",
+      "trampa_habitual": "Trampa habitual de examen",
       "categoria_dato": "Etiqueta"
     }
   ]
@@ -176,6 +196,7 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
     const responseText = response.text || '';
     let parsed: {
       fichas?: Array<{
+        tipo_ficha?: 'tabla' | 'concepto';
         frente_pregunta?: string;
         dorso_respuesta?: string;
         concepto: string;
@@ -205,18 +226,25 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       );
     }
 
-    // 5. Insertar las 10 fichas en Supabase con estructura Anki
-    const paraInsertar = fichasGeneradas.slice(0, 10).map((f) => ({
-      tema_id: temaId,
-      concepto: f.concepto.trim(),
-      valor_exacto: f.valor_exacto.trim(),
-      trampa_habitual: f.trampa_habitual.trim(),
-      categoria_dato: f.categoria_dato?.trim() || null,
-      frente_pregunta: f.frente_pregunta?.trim() || f.concepto.trim(),
-      dorso_respuesta:
+    // 5. Insertar las fichas en Supabase con estructura Anki y tipo_ficha
+    const paraInsertar = fichasGeneradas.map((f) => {
+      const tipo = f.tipo_ficha === 'tabla' ? 'tabla' : 'concepto';
+      const frente = f.frente_pregunta?.trim() || f.concepto.trim();
+      const dorso =
         f.dorso_respuesta?.trim() ||
-        `${f.valor_exacto.trim()}.${f.trampa_habitual ? `\n\n⚠️ Ojo: ${f.trampa_habitual.trim()}` : ''}`,
-    }));
+        `${f.valor_exacto.trim()}.${f.trampa_habitual ? `\n\n⚠️ Ojo con la trampa: ${f.trampa_habitual.trim()}` : ''}`;
+
+      return {
+        tema_id: temaId,
+        concepto: f.concepto.trim(),
+        valor_exacto: f.valor_exacto.trim(),
+        trampa_habitual: f.trampa_habitual.trim(),
+        categoria_dato: f.categoria_dato?.trim() || (tipo === 'tabla' ? 'Tabla / Clasificación' : 'Concepto'),
+        tipo_ficha: tipo,
+        frente_pregunta: frente,
+        dorso_respuesta: dorso,
+      };
+    });
 
     const { data: insertadas, error: errorInsert } = await supabase
       .from('fichas_tecnicas')

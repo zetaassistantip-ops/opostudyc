@@ -313,6 +313,37 @@ function TestGameContent() {
           }
         }
 
+        // 4. Si el usuario pide más preguntas de las existentes para ese filtro,
+        // generar automáticamente un lote de 6 preguntas nuevas y arrancar con las disponibles + esas 6
+        if (poolFiltrado.length < limitePreguntas) {
+          let genTemaId = temaId;
+          if (!genTemaId && temasParam && temasParam !== 'all') {
+            const ids = temasParam
+              .split(',')
+              .map((id) => parseInt(id.trim(), 10))
+              .filter((n) => !isNaN(n));
+            if (ids.length > 0) genTemaId = ids[0];
+          }
+          if (!genTemaId && poolFiltrado.length > 0) {
+            genTemaId = poolFiltrado[0].tema_id;
+          }
+          if (!genTemaId) genTemaId = 1;
+
+          try {
+            const resAuto = await solicitarGeneracionMotorTema(genTemaId, true, 6);
+            if (resAuto.ok && resAuto.preguntas && resAuto.preguntas.length > 0) {
+              const idsExistentes = new Set(poolFiltrado.map((p) => p.id));
+              const nuevasNuevas = resAuto.preguntas.filter((p) => !idsExistentes.has(p.id));
+              if (nuevasNuevas.length > 0) {
+                poolFiltrado = [...poolFiltrado, ...nuevasNuevas];
+                setMotivoVacio(null);
+              }
+            }
+          } catch (e) {
+            console.warn('Aviso en generación automática de preguntas faltantes:', e);
+          }
+        }
+
         if (poolFiltrado.length === 0) {
           setPreguntasRonda([]);
         } else {
@@ -556,6 +587,55 @@ function TestGameContent() {
     }
   };
 
+  // Fabricar 5 preguntas nuevas con IA de los temas seleccionados y continuar el test sin perder racha ni puntuación
+  const handleFabricarMasYContinuar = async () => {
+    let targetTema = temaId;
+    if (!targetTema && temasParam && temasParam !== 'all') {
+      const ids = temasParam
+        .split(',')
+        .map((n) => parseInt(n.trim(), 10))
+        .filter((n) => !isNaN(n));
+      if (ids.length > 0) {
+        targetTema = ids[Math.floor(Math.random() * ids.length)];
+      }
+    }
+    if (!targetTema && preguntasRonda.length > 0) {
+      targetTema = preguntasRonda[preguntaActual ? indiceActual : 0]?.tema_id;
+    }
+    if (!targetTema) targetTema = 1;
+
+    setGenerandoNuevas(true);
+    setErrorMotor(null);
+    try {
+      const res = await solicitarGeneracionMotorTema(targetTema, true, 5);
+      if (res.ok && res.preguntas && res.preguntas.length > 0) {
+        const idsExistentes = new Set(preguntasRonda.map((p) => p.id));
+        const nuevasLibres = res.preguntas.filter((p) => !idsExistentes.has(p.id));
+        const loteAgregar = (nuevasLibres.length > 0 ? nuevasLibres : res.preguntas)
+          .slice(0, 5)
+          .map(barajarOpciones);
+
+        if (loteAgregar.length > 0) {
+          const nuevoIndice = preguntasRonda.length;
+          setPreguntasRonda((prev) => [...prev, ...loteAgregar]);
+          setIndiceActual(nuevoIndice);
+          setOpcionSeleccionadaOriginal(null);
+          setHaRespondido(false);
+          setEvaluacionSRS(null);
+          setMarcarConDudaPrevia(false);
+          setRondaTerminada(false);
+        }
+      } else {
+        alert(res.error || 'No se pudieron generar más preguntas en este momento.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error de conexión con el Tribunal IA para generar 5 preguntas más.');
+    } finally {
+      setGenerandoNuevas(false);
+    }
+  };
+
   // Reiniciar otra ronda con las preguntas actuales
   const reiniciarRonda = () => {
     if (preguntasRonda.length > 0) {
@@ -703,25 +783,24 @@ function TestGameContent() {
 
         {/* Botones de acción */}
         <div className="space-y-2.5 pt-6">
-          {temaId && (
-            <button
-              onClick={() => handleGenerarPreguntas(true)}
-              disabled={generandoNuevas}
-              className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-[0.98] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {generandoNuevas ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Ampliando banco con Tribunal IA (+6)...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>⚡ Generar +6 preguntas nuevas con IA</span>
-                </>
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleFabricarMasYContinuar}
+            disabled={generandoNuevas}
+            className="w-full py-4 bg-slate-950 hover:bg-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-60 text-white font-extrabold text-sm sm:text-base rounded-2xl border-2 border-slate-950 shadow-[4px_4px_0px_0px_#dc2626] flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            {generandoNuevas ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Fabricando 5 preguntas nuevas con IA...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5 text-amber-300" />
+                <span>⚡ ¿Fabricar 5 preguntas nuevas más y continuar el test?</span>
+              </>
+            )}
+          </button>
 
           <button
             onClick={reiniciarRonda}
@@ -1127,7 +1206,29 @@ function TestGameContent() {
             </div>
           </div>
 
-          {/* BOTÓN SIGUIENTE PREGUNTA */}
+          {/* BOTÓN FABRICAR 5 MÁS Y SEGUIR (SI ESTÁ EN LA ÚLTIMA PREGUNTA) */}
+          {indiceActual + 1 >= preguntasRonda.length && (
+            <button
+              type="button"
+              onClick={handleFabricarMasYContinuar}
+              disabled={generandoNuevas}
+              className="w-full py-3 bg-amber-50 hover:bg-amber-100 active:translate-x-[1px] active:translate-y-[1px] disabled:opacity-60 text-amber-950 font-bold text-xs rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] transition-all flex items-center justify-center gap-2 cursor-pointer mb-2"
+            >
+              {generandoNuevas ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-amber-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Fabricando 5 preguntas nuevas con IA...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>⚡ ¿Fabricar 5 preguntas nuevas más y continuar el test?</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* BOTÓN SIGUIENTE PREGUNTA / VER RESULTADOS */}
           <button
             onClick={handleSiguiente}
             className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none text-white font-bold text-sm rounded-xl transition-all border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-center gap-2 cursor-pointer"

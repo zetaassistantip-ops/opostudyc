@@ -80,6 +80,13 @@ export interface EstadisticasGlobales {
   porcentajeDominio: number;
   rachaDias: number;
   falladasHistoricas: number;
+  // Métricas reales de retención y cobertura pedagógica
+  preguntasVistas: number;
+  porcentajeRetencionReal: number;
+  temasExplorados: number;
+  totalTemas: number;
+  porcentajeCoberturaTemas: number;
+  porcentajeCoberturaPreguntas: number;
 }
 
 export type TipoSesion = 'tema' | 'repaso_srs' | 'fallos' | 'simulacro_general';
@@ -105,8 +112,16 @@ export interface FichaTecnica {
   valor_exacto: string;
   trampa_habitual: string;
   categoria_dato?: string;
+  tipo_ficha?: 'tabla' | 'concepto';
   frente_pregunta?: string;
   dorso_respuesta?: string;
+  imagen_oficial_url?: string | null;
+  imagen_propuesta_url?: string | null;
+  estado_propuesta?: 'pendiente' | 'aprobada' | 'rechazada' | null;
+  propuesta_por_email?: string | null;
+  reportada_eliminar?: boolean;
+  votos_reporte?: number;
+  explicacion_ia?: string | null;
   created_at?: string;
   tema?: Tema;
   usuarioSRS?: UsuarioFichaSRS;
@@ -137,6 +152,7 @@ export interface PerfilUsuario {
   tokens_consumidos?: number;
   coste_estimado_eur?: number;
   bytes_almacenamiento?: number;
+  meta_fichas_diarias?: number;
   ultima_conexion?: string;
   created_at?: string;
   // Campos calculados para admin

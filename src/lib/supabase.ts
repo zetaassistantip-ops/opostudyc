@@ -193,7 +193,8 @@ export async function getPreguntas(temaId?: number): Promise<Pregunta[]> {
  */
 export async function solicitarGeneracionMotorTema(
   temaId: number,
-  forzarGeneracion: boolean = false
+  forzarGeneracion: boolean = false,
+  cantidad: number = 6
 ): Promise<{ ok: boolean; preguntas: Pregunta[]; nuevasGeneradas: number; error?: string }> {
   try {
     let userId = getEffectiveUserId();
@@ -207,7 +208,7 @@ export async function solicitarGeneracionMotorTema(
     const res = await fetch('/api/motor-tema', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ temaId, forzarGeneracion, userId }),
+      body: JSON.stringify({ temaId, forzarGeneracion, userId, cantidad }),
     });
 
     const data = await res.json();
@@ -567,10 +568,18 @@ export async function getFichasTecnicas(
             valor_exacto: f.valor_exacto,
             trampa_habitual: f.trampa_habitual,
             categoria_dato: f.categoria_dato,
+            tipo_ficha: f.tipo_ficha || 'concepto',
             frente_pregunta: f.frente_pregunta || f.concepto,
             dorso_respuesta:
               f.dorso_respuesta ||
               `${f.valor_exacto}.${f.trampa_habitual ? `\n\n⚠️ Ojo con la trampa: ${f.trampa_habitual}` : ''}`,
+            imagen_oficial_url: f.imagen_oficial_url || null,
+            imagen_propuesta_url: f.imagen_propuesta_url || null,
+            estado_propuesta: f.estado_propuesta || null,
+            propuesta_por_email: f.propuesta_por_email || null,
+            reportada_eliminar: f.reportada_eliminar || false,
+            votos_reporte: f.votos_reporte || 0,
+            explicacion_ia: f.explicacion_ia || null,
             created_at: f.created_at,
             tema: temasMap.get(f.tema_id),
             usuarioSRS: uSRS || {
@@ -1156,5 +1165,343 @@ export async function getUsoMemoriaSupabase(): Promise<UsoMemoriaSupabase> {
   }
 }
 
+/**
+ * Reporta una ficha técnica defectuosa al Administrador (marca reportada_eliminar e incrementa votos_reporte)
+ */
+export async function reportarFichaEliminar(
+  fichaId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (supabase) {
+      // Intentar leer votos actuales
+      const { data } = await supabase
+        .from('fichas_tecnicas')
+        .select('votos_reporte')
+        .eq('id', fichaId)
+        .single();
 
+      const votosActuales = (data?.votos_reporte || 0) + 1;
 
+      const { error } = await supabase
+        .from('fichas_tecnicas')
+        .update({
+          reportada_eliminar: true,
+          votos_reporte: votosActuales,
+        })
+        .eq('id', fichaId);
+
+      if (!error) return { ok: true };
+    }
+
+    const res = await fetch('/api/admin/fichas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'reportar', fichaId }),
+    });
+    const result = await res.json();
+    return { ok: res.ok, error: result.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al reportar ficha';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Propone una imagen mnemotécnica para que sea aprobada como oficial para todos los usuarios
+ */
+export async function proponerImagenFicha(
+  fichaId: string,
+  imagenUrl: string,
+  email: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('fichas_tecnicas')
+        .update({
+          imagen_propuesta_url: imagenUrl,
+          estado_propuesta: 'pendiente',
+          propuesta_por_email: email,
+        })
+        .eq('id', fichaId);
+
+      if (!error) return { ok: true };
+    }
+
+    const res = await fetch('/api/admin/fichas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accion: 'proponer_imagen',
+        fichaId,
+        imagenUrl,
+        email,
+      }),
+    });
+    const result = await res.json();
+    return { ok: res.ok, error: result.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al proponer imagen';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Obtiene la meta diaria de fichas configurable por el usuario (10, 20, 30 o 50)
+ */
+export async function getMetaFichasDiarias(): Promise<number> {
+  const DEFAULT_META = 20;
+  if (typeof window !== 'undefined') {
+    const guardada = localStorage.getItem('opostudy_meta_fichas');
+    if (guardada) {
+      const parsed = parseInt(guardada, 10);
+      if ([10, 20, 30, 50].includes(parsed)) return parsed;
+    }
+  }
+
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data } = await supabase
+          .from('perfiles_usuarios')
+          .select('meta_fichas_diarias')
+          .eq('id', user.id)
+          .single();
+
+        if (data?.meta_fichas_diarias) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('opostudy_meta_fichas', String(data.meta_fichas_diarias));
+          }
+          return data.meta_fichas_diarias;
+        }
+      }
+    } catch {}
+  }
+
+  return DEFAULT_META;
+}
+
+/**
+ * Guarda la meta diaria de fichas en Supabase y localmente
+ */
+export async function guardarMetaFichasDiarias(
+  meta: number
+): Promise<{ ok: boolean }> {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('opostudy_meta_fichas', String(meta));
+  }
+
+  if (supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await supabase
+          .from('perfiles_usuarios')
+          .update({ meta_fichas_diarias: meta })
+          .eq('id', user.id);
+      }
+    } catch (e) {
+      console.warn('Aviso guardando meta_fichas_diarias:', e);
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Solicita la explicación pedagógica IA de una ficha (/api/explicar-ficha)
+ */
+export async function solicitarExplicacionIA(
+  fichaId: string,
+  frentePregunta: string,
+  dorsoRespuesta: string,
+  temaId?: number
+): Promise<{ ok: boolean; explicacion?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/explicar-ficha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fichaId,
+        frentePregunta,
+        dorsoRespuesta,
+        temaId,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Error al obtener explicación' };
+    }
+
+    return { ok: true, explicacion: data.explicacion };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error de conexión con el profesor IA';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Funciones de Administración Masiva (Super-Panel de Moderación)
+ */
+
+export async function eliminarPreguntasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; eliminadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, eliminadas: 0 };
+  try {
+    if (supabase) {
+      await supabase.from('usuario_progreso_srs').delete().in('pregunta_id', ids);
+      const { error } = await supabase.from('preguntas').delete().in('id', ids);
+      if (!error) return { ok: true, eliminadas: ids.length };
+    }
+
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, eliminadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error eliminando preguntas';
+    return { ok: false, eliminadas: 0, error: msg };
+  }
+}
+
+export async function resetearVotosPreguntasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; actualizadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, actualizadas: 0 };
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('preguntas')
+        .update({ votos_buena: 0, votos_regular: 0, votos_mala: 0 })
+        .in('id', ids);
+      if (!error) return { ok: true, actualizadas: ids.length };
+    }
+
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, actualizadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error reseteando votos';
+    return { ok: false, actualizadas: 0, error: msg };
+  }
+}
+
+export async function getFichasModeracionAdmin(): Promise<FichaTecnica[]> {
+  try {
+    const res = await fetch('/api/admin/fichas');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.fichas) return data.fichas;
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('fichas_tecnicas')
+        .select('*, tema:temas(*)')
+        .or('reportada_eliminar.eq.true,estado_propuesta.eq.pendiente')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) return data as FichaTecnica[];
+    }
+    return [];
+  } catch (e) {
+    console.error('Error cargando fichas de moderación:', e);
+    return [];
+  }
+}
+
+export async function eliminarFichasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; eliminadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, eliminadas: 0 };
+  try {
+    if (supabase) {
+      await supabase.from('usuario_fichas_srs').delete().in('ficha_id', ids);
+      const { error } = await supabase.from('fichas_tecnicas').delete().in('id', ids);
+      if (!error) return { ok: true, eliminadas: ids.length };
+    }
+
+    const res = await fetch('/api/admin/fichas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, eliminadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error eliminando fichas';
+    return { ok: false, eliminadas: 0, error: msg };
+  }
+}
+
+export async function limpiarReportesFichasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; actualizadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, actualizadas: 0 };
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('fichas_tecnicas')
+        .update({ reportada_eliminar: false, votos_reporte: 0 })
+        .in('id', ids);
+      if (!error) return { ok: true, actualizadas: ids.length };
+    }
+
+    const res = await fetch('/api/admin/fichas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'limpiar_reportes', ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, actualizadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error limpiando reportes';
+    return { ok: false, actualizadas: 0, error: msg };
+  }
+}
+
+export async function aprobarImagenesPropuestasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; actualizadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, actualizadas: 0 };
+  try {
+    const res = await fetch('/api/admin/fichas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'aprobar_imagenes', ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, actualizadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error aprobando imágenes';
+    return { ok: false, actualizadas: 0, error: msg };
+  }
+}
+
+export async function rechazarImagenesPropuestasMasivo(
+  ids: string[]
+): Promise<{ ok: boolean; actualizadas: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, actualizadas: 0 };
+  try {
+    const res = await fetch('/api/admin/fichas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'rechazar_imagenes', ids }),
+    });
+    const data = await res.json();
+    return { ok: res.ok, actualizadas: ids.length, error: data.error };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error rechazando imágenes';
+    return { ok: false, actualizadas: 0, error: msg };
+  }
+}

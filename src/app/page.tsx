@@ -6,16 +6,13 @@ import {
   Flame,
   Zap,
   Skull,
-  ShieldAlert,
   ChevronRight,
   TrendingUp,
-  Award,
   Sparkles,
   Search,
   BookOpen,
-  Filter,
-  Target,
   Crown,
+  Check,
 } from 'lucide-react';
 import { Tema, Pregunta, EstadisticasGlobales, SesionEstudio } from '@/lib/types';
 import { getTemas, getPreguntas, getHistorialSesiones, calcularRachaDias } from '@/lib/supabase';
@@ -34,6 +31,7 @@ export default function DashboardPrincipal() {
   const [modalRachaAbierto, setModalRachaAbierto] = useState(false);
   const [modalSimulacroAbierto, setModalSimulacroAbierto] = useState(false);
   const [temaSeleccionadoParaTest, setTemaSeleccionadoParaTest] = useState<number | null>(null);
+  const [temasSeleccionados, setTemasSeleccionados] = useState<number[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState<string>('');
 
@@ -47,6 +45,12 @@ export default function DashboardPrincipal() {
     porcentajeDominio: 0,
     rachaDias: 0,
     falladasHistoricas: 0,
+    preguntasVistas: 0,
+    porcentajeRetencionReal: 0,
+    temasExplorados: 0,
+    totalTemas: 35,
+    porcentajeCoberturaTemas: 0,
+    porcentajeCoberturaPreguntas: 0,
   });
 
   useEffect(() => {
@@ -69,11 +73,17 @@ export default function DashboardPrincipal() {
         let enObservacion = 0;
         let nuevas = 0;
         let falladasHistoricas = 0;
+        let vistas = 0;
 
         listaPreguntas.forEach((p) => {
+          const esVista = p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0;
+          if (esVista) {
+            vistas++;
+          }
+
           if (p.fallos_totales > 0) falladasHistoricas++;
 
-          if (p.ultima_vez_vista === null) {
+          if (!esVista) {
             nuevas++;
           } else if (new Date(p.proxima_revision).getTime() <= ahora) {
             enLlamas++;
@@ -89,10 +99,24 @@ export default function DashboardPrincipal() {
         });
 
         const total = listaPreguntas.length || 0;
-        const porcentajeDominio = total > 0
-          ? Math.round(((dominadas * 1.0 + asentadas * 0.6) / total) * 100)
+        // Retención real estrictamente calculada sobre las preguntas vistas por el usuario
+        const dominadasTotales = dominadas + Math.round(asentadas * 0.7);
+        const porcentajeRetencionReal = vistas > 0
+          ? Math.min(100, Math.round((dominadasTotales / vistas) * 100))
           : 0;
 
+        // Temas explorados (con al menos 1 pregunta vista)
+        const temasConVistas = listaTemas.filter((t) =>
+          listaPreguntas.some(
+            (p) =>
+              p.tema_id === t.id &&
+              (p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0)
+          )
+        ).length;
+
+        const totalTemasNum = listaTemas.length || 35;
+        const porcentajeCoberturaTemas = Math.round((temasConVistas / totalTemasNum) * 100);
+        const porcentajeCoberturaPreguntas = total > 0 ? Math.round((vistas / total) * 100) : 0;
         const rachaReal = calcularRachaDias(listaSesiones);
 
         setStats({
@@ -102,9 +126,15 @@ export default function DashboardPrincipal() {
           asentadas,
           enObservacion,
           nuevas,
-          porcentajeDominio,
+          porcentajeDominio: porcentajeRetencionReal,
           rachaDias: rachaReal,
           falladasHistoricas,
+          preguntasVistas: vistas,
+          porcentajeRetencionReal,
+          temasExplorados: temasConVistas,
+          totalTemas: totalTemasNum,
+          porcentajeCoberturaTemas,
+          porcentajeCoberturaPreguntas,
         });
       } catch (err) {
         console.error('Error cargando dashboard:', err);
@@ -115,22 +145,25 @@ export default function DashboardPrincipal() {
     cargarDatos();
   }, [user]);
 
-  // Progreso por tema (calculado según preguntas en cajas 3-5 vs 0-1)
+  // Progreso por tema: Retención calculada estrictamente sobre las vistas del tema
   const estadisticasPorTema = useMemo(() => {
-    const map = new Map<number, { total: number; dominadas: number; porcentaje: number }>();
+    const map = new Map<number, { total: number; vistas: number; dominadas: number; porcentaje: number }>();
 
     temas.forEach((t) => {
       const pregsDelTema = preguntas.filter((p) => p.tema_id === t.id);
       const total = pregsDelTema.length;
+      const vistas = pregsDelTema.filter(
+        (p) => p.ultima_vez_vista !== null || p.caja_leitner > 0 || p.fallos_totales > 0
+      ).length;
       const dominadas = pregsDelTema.filter((p) => p.caja_leitner >= 3).length;
-      const porcentaje = total > 0 ? Math.round((dominadas / total) * 100) : 0;
-      map.set(t.id, { total, dominadas, porcentaje });
+      const porcentaje = vistas > 0 ? Math.round((dominadas / vistas) * 100) : 0;
+      map.set(t.id, { total, vistas, dominadas, porcentaje });
     });
 
     return map;
   }, [temas, preguntas]);
 
-  // Filtrado de temas por buscador de texto o número
+  // Filtrado de temas por buscador
   const temasFiltrados = useMemo(() => {
     return temas.filter((t) => {
       return (
@@ -141,8 +174,24 @@ export default function DashboardPrincipal() {
     });
   }, [temas, busqueda]);
 
+  // Toggle de selección de tema tocando el número
+  const handleToggleTemaSeleccionado = (id: number) => {
+    setTemasSeleccionados((prev) =>
+      prev.includes(id) ? prev.filter((tId) => tId !== id) : [...prev, id]
+    );
+  };
+
+  // Botón rápido marcar todos / limpiar
+  const handleMarcarTodosOLimpiar = () => {
+    if (temasSeleccionados.length === temas.length) {
+      setTemasSeleccionados([]);
+    } else {
+      setTemasSeleccionados(temas.map((t) => t.id));
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-[100dvh] pb-24 px-4 pt-3 space-y-4 animate-fadeIn">
+    <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-[100dvh] pb-28 px-4 pt-3 space-y-4 animate-fadeIn relative">
       {/* 1. CABECERA EDITORIAL CLEAN */}
       <header className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2.5">
@@ -163,7 +212,7 @@ export default function DashboardPrincipal() {
           </div>
         </div>
 
-        {/* Acciones de usuario, descargar app, admin y racha */}
+        {/* Acciones de usuario: Admin (SOLO SI ES ADMIN), instalar y racha */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <BotonInstalarApp />
           {esAdmin && (
@@ -188,20 +237,22 @@ export default function DashboardPrincipal() {
         </div>
       </header>
 
-      {/* 2. PANEL DE PROGRESO Y RETENCIÓN */}
+      {/* 2. PANEL DE PROGRESO Y RETENCIÓN REAL SOBRE PREGUNTAS VISTAS */}
       <section className="p-4 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] space-y-3 relative">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500 flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-red-600" />
-              Retención Global del Temario
+              Retención Real (Sobre lo Estudiado)
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black font-mono text-slate-900 tracking-tight">
-                {stats.porcentajeDominio}%
+                {stats.preguntasVistas > 0 ? `${stats.porcentajeRetencionReal}%` : '0%'}
               </span>
               <span className="text-xs font-mono text-slate-500 font-medium">
-                ({stats.dominadas + stats.asentadas} afianzadas de {stats.totalPreguntas})
+                {stats.preguntasVistas > 0
+                  ? `(${stats.dominadas + stats.asentadas} afianzadas de ${stats.preguntasVistas} vistas)`
+                  : 'Sin preguntas vistas aún'}
               </span>
             </div>
           </div>
@@ -216,7 +267,20 @@ export default function DashboardPrincipal() {
           </div>
         </div>
 
-        {/* Barra de progreso global */}
+        {/* Métrica de Cobertura Global de la Oposición */}
+        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-slate-700">
+              Temas explorados: <strong className="text-slate-950 font-bold">{stats.temasExplorados} de {stats.totalTemas}</strong> ({stats.porcentajeCoberturaTemas}%)
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500">
+            {stats.preguntasVistas}/{stats.totalPreguntas} preguntas vistas
+          </span>
+        </div>
+
+        {/* Barra de progreso global sobre vistas */}
         <div className="w-full h-2.5 bg-slate-100 rounded-lg overflow-hidden border border-slate-900 flex">
           <div
             title="Dominadas (Caja 4-5)"
@@ -234,9 +298,9 @@ export default function DashboardPrincipal() {
             style={{ width: `${(stats.enObservacion / (stats.totalPreguntas || 1)) * 100}%` }}
           />
           <div
-            title="Nuevas / Pendientes (Caja 0)"
-            className="bg-slate-300 h-full transition-all duration-500"
-            style={{ width: `${((stats.nuevas + stats.enLlamasHoy) / (stats.totalPreguntas || 1)) * 100}%` }}
+            title="Nuevas / Pendientes"
+            className="bg-slate-200 h-full transition-all duration-500"
+            style={{ width: `${(stats.nuevas / (stats.totalPreguntas || 1)) * 100}%` }}
           />
         </div>
 
@@ -252,7 +316,7 @@ export default function DashboardPrincipal() {
             <span className="w-2 h-2 rounded-sm bg-amber-400 border border-slate-900" /> En repaso
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-slate-300 border border-slate-900" /> Nuevas
+            <span className="w-2 h-2 rounded-sm bg-slate-200 border border-slate-900" /> Inéditas
           </span>
         </div>
       </section>
@@ -274,41 +338,12 @@ export default function DashboardPrincipal() {
               Sesión de Repaso SRS
             </div>
             <div className="text-xs text-slate-300 font-normal">
-              15 preguntas para consolidar la memoria a largo plazo
+              Consolida en la curva del olvido tus preguntas pendientes
             </div>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 group-hover:text-white transition-all flex-shrink-0" />
       </Link>
-
-      {/* 3.1 BOTÓN DESTACADO: TEST GENERAL / SIMULACRO */}
-      <button
-        type="button"
-        onClick={() => {
-          setTemaSeleccionadoParaTest(null);
-          setModalSimulacroAbierto(true);
-        }}
-        className="w-full p-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] flex items-center justify-between text-white group cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-lg bg-violet-600 border border-white/20 flex items-center justify-center flex-shrink-0 shadow-xs">
-            <Target className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-left">
-            <div className="text-[11px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Simulacro de Examen</span>
-              <span className="px-1.5 py-0.2 rounded bg-violet-800/80 text-violet-200 text-[10px] font-mono">Multitema</span>
-            </div>
-            <div className="text-base font-bold tracking-tight text-white">
-              🎯 Test General / Simulacro
-            </div>
-            <div className="text-xs text-slate-300 font-normal">
-              Batería aleatoria global o combinando los temas que tú elijas
-            </div>
-          </div>
-        </div>
-        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 group-hover:text-white transition-all flex-shrink-0" />
-      </button>
 
       {/* 4. MODOS COMPLEMENTARIOS */}
       <div className="grid grid-cols-2 gap-2.5">
@@ -335,9 +370,9 @@ export default function DashboardPrincipal() {
           </div>
         </Link>
 
-        {/* Chuleta Express */}
+        {/* Fichas Técnicas Clave */}
         <Link
-          href="/chuleta"
+          href="/fichas"
           className="p-3.5 rounded-xl bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] hover:border-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex flex-col justify-between space-y-2.5 group cursor-pointer"
         >
           <div className="flex items-center justify-between">
@@ -353,13 +388,13 @@ export default function DashboardPrincipal() {
               Fichas Técnicas
             </h3>
             <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-              Cifras exactas, plazos, presiones y normas UNE.
+              Cifras exactas, tablas comparativas y normas UNE.
             </p>
           </div>
         </Link>
       </div>
 
-      {/* 5. MAPA DE LOS 35 TEMAS OFICIALES */}
+      {/* 5. MAPA DE LOS 35 TEMAS OFICIALES CON SELECCIÓN INTERACTIVA */}
       <section className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -368,12 +403,21 @@ export default function DashboardPrincipal() {
               Temario Oficial
             </h2>
           </div>
-          <span className="text-xs text-slate-900 font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 border border-slate-900">
-            {temasFiltrados.length} / 35 temas
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleMarcarTodosOLimpiar}
+              className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-900 text-slate-800 transition-all cursor-pointer"
+            >
+              {temasSeleccionados.length === temas.length ? 'Limpiar' : 'Marcar todos'}
+            </button>
+            <span className="text-xs text-slate-900 font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 border border-slate-900">
+              {temasFiltrados.length} / 35
+            </span>
+          </div>
         </div>
 
-        {/* Buscador táctico rápido (limpio sin píldoras de bloques) */}
+        {/* Buscador táctico rápido */}
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
@@ -385,43 +429,66 @@ export default function DashboardPrincipal() {
           />
         </div>
 
-        {/* Lista de temas */}
+        {/* Lista de temas interactiva */}
         <div className="space-y-2">
           {temasFiltrados.map((tema) => {
-            const dataTema = estadisticasPorTema.get(tema.id) || { total: 0, dominadas: 0, porcentaje: 0 };
+            const dataTema = estadisticasPorTema.get(tema.id) || { total: 0, vistas: 0, dominadas: 0, porcentaje: 0 };
+            const estaMarcado = temasSeleccionados.includes(tema.id);
+
             return (
               <div
                 key={tema.id}
-                className="p-3.5 rounded-xl bg-white border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] transition-all flex items-center justify-between gap-3"
+                className={`p-3.5 rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] transition-all flex items-center justify-between gap-3 ${
+                  estaMarcado ? 'bg-amber-50/70 border-slate-950' : 'bg-white'
+                }`}
               >
-                {/* ID del tema */}
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono border border-slate-900">
-                  {tema.id}
-                </div>
+                {/* Cuadro del Número del Tema: Tocar para Marcar/Desmarcar */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleTemaSeleccionado(tema.id)}
+                  className={`w-9 h-9 rounded-lg font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono border-2 border-slate-900 transition-all cursor-pointer select-none active:scale-95 ${
+                    estaMarcado
+                      ? 'bg-emerald-500 text-white shadow-[1px_1px_0px_0px_#0f172a]'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+                  }`}
+                  title={estaMarcado ? `Desmarcar Tema ${tema.id}` : `Marcar Tema ${tema.id}`}
+                >
+                  {estaMarcado ? <Check className="w-4 h-4 stroke-[3]" /> : tema.id}
+                </button>
 
-                {/* Título y barra de progreso */}
+                {/* Título y barra de retención real */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
                     <span className="font-semibold text-slate-600 truncate pr-1">
                       {tema.bloque}
                     </span>
-                    <span className="font-mono text-slate-900 font-bold">{dataTema.porcentaje}% retención</span>
+                    {dataTema.vistas === 0 ? (
+                      <span className="font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        Sin estrenar (0 vistas)
+                      </span>
+                    ) : (
+                      <span className="font-mono text-emerald-700 font-bold">
+                        {dataTema.porcentaje}% retención ({dataTema.dominadas}/{dataTema.vistas})
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-xs font-semibold text-slate-900 truncate leading-snug">
                     {tema.titulo}
                   </h3>
 
-                  {/* Micro barra de progreso */}
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5 border border-slate-900/40">
+                  {/* Micro barra de retención sobre vistas */}
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5 border border-slate-900/30">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+                      className={`h-full transition-all duration-300 rounded-full ${
+                        dataTema.vistas === 0 ? 'bg-slate-200' : 'bg-emerald-500'
+                      }`}
                       style={{ width: `${dataTema.porcentaje}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Botón Entrenar Tema con modal configurador */}
+                {/* Botón Entrenar Tema individual */}
                 <button
                   type="button"
                   onClick={() => {
@@ -455,6 +522,28 @@ export default function DashboardPrincipal() {
         </div>
       </section>
 
+      {/* BOTÓN FLOTANTE (FAB) CUANDO HAY 1 O MÁS TEMAS MARCADOS */}
+      {temasSeleccionados.length > 0 && (
+        <div className="fixed bottom-16 sm:bottom-18 left-0 right-0 z-40 px-4 pointer-events-none animate-in slide-in-from-bottom-4 duration-200">
+          <div className="max-w-md mx-auto pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setTemaSeleccionadoParaTest(null);
+                setModalSimulacroAbierto(true);
+              }}
+              className="w-full py-3.5 px-5 bg-slate-950 hover:bg-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none text-white font-extrabold text-sm sm:text-base rounded-2xl border-2 border-slate-950 shadow-[4px_4px_0px_0px_#dc2626] flex items-center justify-between transition-all cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <span>🎯</span>
+                <span>Configurar Test ({temasSeleccionados.length} {temasSeleccionados.length === 1 ? 'tema' : 'temas'})</span>
+              </span>
+              <ChevronRight className="w-5 h-5 text-amber-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Barra de navegación inferior fija para mobile */}
       <BottomNav badgeRepaso={stats.enLlamasHoy} />
 
@@ -466,7 +555,7 @@ export default function DashboardPrincipal() {
         sesiones={sesiones}
       />
 
-      {/* Modal de Configuración de Simulacro / Test General y por Tema */}
+      {/* Pantalla Completa de Configuración de Test */}
       <ModalSimulacroConfig
         abierto={modalSimulacroAbierto}
         onCerrar={() => {
@@ -476,6 +565,7 @@ export default function DashboardPrincipal() {
         temas={temas}
         preguntas={preguntas}
         temaInicial={temaSeleccionadoParaTest}
+        temasIniciales={temasSeleccionados}
       />
     </div>
   );

@@ -61,45 +61,47 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// DELETE: Eliminar pregunta permanentemente
+// DELETE: Eliminar pregunta(s) permanentemente
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id } = body;
+    const { id, ids } = body;
+    const targetIds: string[] = ids || (id ? [id] : []);
 
-    if (!id) {
-      return NextResponse.json({ error: 'Falta el id de la pregunta' }, { status: 400 });
+    if (targetIds.length === 0) {
+      return NextResponse.json({ error: 'Falta el id o ids de preguntas' }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
 
     // Eliminar también registros dependientes en usuario_progreso_srs si no tienen ON DELETE CASCADE
-    await supabase.from('usuario_progreso_srs').delete().eq('pregunta_id', id);
+    await supabase.from('usuario_progreso_srs').delete().in('pregunta_id', targetIds);
 
     const { error } = await supabase
       .from('preguntas')
       .delete()
-      .eq('id', id);
+      .in('id', targetIds);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, mensaje: 'Pregunta eliminada con éxito' });
+    return NextResponse.json({ ok: true, mensaje: `${targetIds.length} pregunta(s) eliminada(s) con éxito` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error interno al eliminar';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-// PATCH: Resetear votos de una pregunta
+// PATCH: Resetear votos de pregunta(s)
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id } = body;
+    const { id, ids } = body;
+    const targetIds: string[] = ids || (id ? [id] : []);
 
-    if (!id) {
-      return NextResponse.json({ error: 'Falta el id de la pregunta' }, { status: 400 });
+    if (targetIds.length === 0) {
+      return NextResponse.json({ error: 'Falta el id o ids de preguntas' }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
@@ -110,13 +112,13 @@ export async function PATCH(req: NextRequest) {
         votos_regular: 0,
         votos_mala: 0,
       })
-      .eq('id', id);
+      .in('id', targetIds);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, mensaje: 'Votos reseteados a 0' });
+    return NextResponse.json({ ok: true, mensaje: `Votos reseteados a 0 para ${targetIds.length} pregunta(s)` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error interno al resetear votos';
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -25,6 +25,7 @@ import {
   getHistorialSesiones,
   calcularRachaDias,
   resetearProgresoTema,
+  limpiarPreguntasIntrusasTema1,
 } from '@/lib/supabase';
 import {
   esPreguntaVista,
@@ -78,6 +79,7 @@ export default function DashboardPrincipal() {
   useEffect(() => {
     async function cargarDatos() {
       try {
+        limpiarPreguntasIntrusasTema1().catch((e) => console.warn('Error purga tema 1:', e));
         const [listaTemas, listaPreguntas, listaSesiones] = await Promise.all([
           getTemas(),
           getPreguntas(),
@@ -384,9 +386,16 @@ export default function DashboardPrincipal() {
           <div className="text-right">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 border border-slate-900 text-red-700 text-xs font-mono font-bold">
               <Flame className="w-3.5 h-3.5 fill-red-600 text-red-600" />
-              <span>{stats.enLlamasHoy} para repasar</span>
+              <span>
+                {stats.enLlamasHoy > 25 ? '🔥 25 para hoy' : `${stats.enLlamasHoy} para repasar`}
+              </span>
             </div>
-            <span className="block text-[10px] text-slate-500 font-mono mt-1">Repaso espaciado</span>
+            {stats.enLlamasHoy > 25 && (
+              <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
+                ({stats.enLlamasHoy} acumuladas)
+              </span>
+            )}
+            <span className="block text-[10px] text-slate-500 font-mono mt-0.5">Repaso espaciado</span>
           </div>
         </div>
 
@@ -457,11 +466,18 @@ export default function DashboardPrincipal() {
             <div className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
               Entrenamiento Diario
             </div>
-            <div className="text-base font-bold tracking-tight text-white">
-              Sesión de Repaso SRS
+            <div className="text-base font-bold tracking-tight text-white flex items-center gap-2">
+              <span>Sesión de Repaso SRS</span>
+              {stats.enLlamasHoy > 25 && (
+                <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-red-600 text-white border border-white/30">
+                  🔥 25 para hoy
+                </span>
+              )}
             </div>
             <div className="text-xs text-slate-300 font-normal">
-              Consolida en la curva del olvido tus preguntas pendientes
+              {stats.enLlamasHoy > 25
+                ? `Consolida 25 preguntas prioritarias (${stats.enLlamasHoy} acumuladas pendientes)`
+                : 'Consolida en la curva del olvido tus preguntas pendientes'}
             </div>
           </div>
         </div>

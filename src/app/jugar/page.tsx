@@ -201,6 +201,7 @@ function TestGameContent() {
   const [motivoVacio, setMotivoVacio] = useState<'nuevas' | 'falladas' | 'general' | null>(null);
 
   const [preguntasRonda, setPreguntasRonda] = useState<PreguntaJuego[]>([]);
+  const [preguntasPendientesRestantes, setPreguntasPendientesRestantes] = useState<Pregunta[]>([]);
   const [secciones, setSecciones] = useState<SeccionTemario[]>([]);
   const [temas, setTemas] = useState<Tema[]>([]);
   const [indiceActual, setIndiceActual] = useState(0);
@@ -242,6 +243,48 @@ function TestGameContent() {
         setTemas(todosTemas);
 
         let poolBase: Pregunta[] = [];
+
+        if (modo === 'repaso') {
+          const todas = await getPreguntas();
+          const ahora = Date.now();
+          const vencidas = todas.filter(
+            (p) => p.ultima_vez_vista !== null && new Date(p.proxima_revision).getTime() <= ahora
+          );
+          const cajaBaja = todas.filter(
+            (p) => p.ultima_vez_vista !== null && new Date(p.proxima_revision).getTime() > ahora && p.caja_leitner <= 1
+          );
+          const noVistas = todas.filter((p) => p.ultima_vez_vista === null);
+
+          let poolRepaso = [...vencidas];
+          if (poolRepaso.length < 25) {
+            poolRepaso = [...poolRepaso, ...cajaBaja];
+          }
+          if (poolRepaso.length < 25) {
+            poolRepaso = [...poolRepaso, ...noVistas];
+          }
+
+          // Priorizar menor caja_leitner (Caja 0 y 1 primero) y mayor número de fallos históricos
+          poolRepaso.sort((a, b) => {
+            if (a.caja_leitner !== b.caja_leitner) {
+              return a.caja_leitner - b.caja_leitner;
+            }
+            return (b.fallos_totales || 0) - (a.fallos_totales || 0);
+          });
+
+          const limite = limiteParam ? parseInt(limiteParam, 10) : 25;
+          const tandaInicial = poolRepaso.slice(0, limite);
+          const restantes = poolRepaso.slice(limite);
+          setPreguntasPendientesRestantes(restantes);
+
+          if (tandaInicial.length === 0) {
+            setMotivoVacio('general');
+            setPreguntasRonda([]);
+          } else {
+            setPreguntasRonda(tandaInicial.map(barajarOpciones));
+          }
+          setCargando(false);
+          return;
+        }
 
         if (modo === 'general') {
           const todas = await getPreguntas();
@@ -764,13 +807,13 @@ function TestGameContent() {
               Impacto en tu calendario de estudio:
             </div>
             <p>
-              • <strong className="text-emerald-700">{estadisticasRonda.aciertosSeguros} preguntas</strong> afianzadas en cajas superiores (espaciadas hasta 35 días).
+              • <strong className="text-emerald-700">{estadisticasRonda.aciertosSeguros} preguntas</strong> afianzadas en cajas superiores (espaciadas hasta 120 días con dispersión anti-vencimiento masivo).
             </p>
             <p>
-              • <strong className="text-amber-700">{estadisticasRonda.aciertosDuda} preguntas</strong> en observación para repasar en 24h.
+              • <strong className="text-amber-700">{estadisticasRonda.aciertosDuda} preguntas</strong> en observación para repasar en 24-48h.
             </p>
             <p>
-              • <strong className="text-red-700">{estadisticasRonda.fallos} fallos</strong> devueltos a Caja 0 para corregir pronto.
+              • <strong className="text-red-700">{estadisticasRonda.fallos} fallos</strong> devueltos a Caja 0 para corregir mañana.
             </p>
             {estadisticasRonda.saltadas > 0 && (
               <p>
@@ -782,6 +825,29 @@ function TestGameContent() {
 
         {/* Botones de acción */}
         <div className="space-y-2.5 pt-6">
+          {modo === 'repaso' && preguntasPendientesRestantes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const siguienteLote = preguntasPendientesRestantes.slice(0, 20);
+                const nuevasRestantes = preguntasPendientesRestantes.slice(20);
+                setPreguntasPendientesRestantes(nuevasRestantes);
+                setPreguntasRonda(siguienteLote.map(barajarOpciones));
+                setIndiceActual(0);
+                setOpcionSeleccionadaOriginal(null);
+                setHaRespondido(false);
+                setEvaluacionSRS(null);
+                setMarcarConDudaPrevia(false);
+                setRondaTerminada(false);
+                setEstadisticasRonda({ aciertosSeguros: 0, aciertosDuda: 0, fallos: 0, saltadas: 0 });
+              }}
+              className="w-full py-4 bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all animate-pulse"
+            >
+              <Flame className="w-5 h-5 text-amber-300" />
+              <span>🚀 Avanzar otras 20 preguntas pendientes ({preguntasPendientesRestantes.length} restantes)</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleFabricarMasYContinuar}

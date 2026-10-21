@@ -42,30 +42,39 @@ export const MOCK_SECCIONES: SeccionTemario[] = [
   {
     id: 'sec-1-1',
     tema_id: 1,
-    epigrafe: 'Art. 14 al 29 - Sección 1ª: Derechos Fundamentales y Libertades Públicas',
-    contenido_markdown: `### TÍTULO I: DE LOS DERECHOS Y DEBERES FUNDAMENTALES
-**Capítulo Segundo: Derechos y libertades**
-**Sección 1ª: De los derechos fundamentales y de las libertades públicas (Artículos 15 a 29)**
+    epigrafe: 'TREBEP: Clases de Personal, Situaciones Administrativas y Régimen Disciplinario',
+    contenido_markdown: `### LA FUNCIÓN PÚBLICA (TREBEP - RDL 5/2015 Y LEGISLACIÓN DE LA COMUNIDAD DE MADRID)
+El personal al servicio de las Administraciones Públicas se clasifica en:
+1. **Funcionarios de carrera:** Vinculados por una relación estatutaria regulada por el Derecho Administrativo para el desempeño de servicios profesionales retribuidos de carácter permanente. El ejercicio de las funciones que impliquen la participación directa o indirecta en el ejercicio de las potestades públicas o en la salvaguardia de los intereses generales corresponden exclusivamente a los funcionarios públicos.
+2. **Funcionarios interinos:** Nombrados por razones expresamente justificadas de necesidad y urgencia (plazas vacantes máx 3 años, sustitución transitoria, ejecución de programas temporales máx 3 años, o exceso/acumulación de tareas máx 9 meses en 18 meses).
+3. **Personal laboral:** En virtud de contrato de trabajo (fijo, por tiempo indefinido o temporal).
+4. **Personal eventual:** Solo realiza funciones expresamente calificadas como de confianza o asesoramiento especial; su nombramiento y cese serán libres, y cesa automáticamente con la autoridad a la que presta su función.
 
-* **Artículo 15:** Todos tienen derecho a la vida y a la integridad física y moral, sin que, en ningún caso, puedan ser sometidos a tortura ni a penas o tratos inhumanos o degradantes. Queda abolida la pena de muerte, salvo lo que puedan disponer las leyes penales militares para tiempos de guerra.
-* **Artículo 17:** Toda persona tiene derecho a la libertad y a la seguridad. Nadie puede ser privado de su libertad, sino con la observancia de lo establecido en este artículo y en los casos y en la forma previstos en la ley. La detención preventiva no podrá durar más del tiempo estrictamente necesario para la realización de las averiguaciones tendentes al esclarecimiento de los hechos, y, en todo caso, en el plazo máximo de setenta y dos horas, el detenido deberá ser puesto en libertad o a disposición de la autoridad judicial.
-* **Artículo 18.2:** El domicilio es inviolable. Ninguna entrada o registro podrá hacerse en él sin consentimiento del titular o resolución judicial, salvo en caso de flagrante delito.
-* **Artículo 168 (Reforma agravada):** Cuando se propusiere la revisión total de la Constitución o una parcial que afecte al Título preliminar, al Capítulo segundo, Sección primera del Título I, o al Título II, se procederá a la aprobación del principio por mayoría de dos tercios de cada Cámara, y a la disolución inmediata de las Cortes.`,
+#### Situaciones Administrativas de los Funcionarios de Carrera:
+* **Servicio activo:** Desempeño de puesto de trabajo oficial.
+* **Servicios especiales:** Diputados, senadores, miembros del Gobierno, cargos electos locales. Se computa tiempo a efectos de trienios, ascensos y derechos pasivos con reserva de puesto.
+* **Servicio en otras Administraciones Públicas.**
+* **Excedencia:** Voluntaria por interés particular (precisa haber prestado servicios efectivos durante al menos 5 años inmediatamente anteriores; no devenga retribuciones ni computa tiempo para ascensos/trienios), por agrupación familiar, por cuidado de familiares (máx 3 años, computa trienios y reserva puesto 2 años), por violencia de género o terrorismo.
+* **Suspensión de funciones:** Provisional (no puede exceder de 6 meses salvo paralización imputable al interesado) o firme (determina la pérdida del puesto si es superior a 6 meses).
+
+#### Régimen Disciplinario y Faltas:
+* **Prescripción de faltas:** Faltas muy graves prescriben a los 3 años; graves a los 2 años; leves a los 6 meses.
+* **Prescripción de sanciones:** Sanciones por faltas muy graves prescriben a los 3 años; por graves a los 2 años; por leves al año.`,
     datos_criticos: [
       {
-        concepto: 'Plazo máximo detención preventiva ordinaria',
-        valor_exacto: '72 horas',
-        trampa_habitual: 'Confundir con 48 horas o 24 horas del plazo de habeas corpus.',
+        concepto: 'Prescripción de faltas muy graves (TREBEP)',
+        valor_exacto: '3 años',
+        trampa_habitual: 'Confundir con 2 años (graves) o 6 meses (leves).',
       },
       {
-        concepto: 'Garantía del domicilio (Art. 18.2)',
-        valor_exacto: 'Consentimiento del titular, resolución judicial o flagrante delito',
-        trampa_habitual: 'Añadir estado de alarma como causa ordinaria sin mediar decreto de suspensión individual.',
+        concepto: 'Tiempo previo mínimo para excedencia voluntaria por interés particular',
+        valor_exacto: '5 años de servicios efectivos inmediatamente anteriores',
+        trampa_habitual: 'Poner 3 años o 2 años continuados.',
       },
       {
-        concepto: 'Mayoría requerida para reforma agravada (Art. 168)',
-        valor_exacto: 'Mayoría de dos tercios de cada Cámara + disolución de Cortes',
-        trampa_habitual: 'Poner mayoría de tres quintos (que corresponde al Art. 167 ordinario).',
+        concepto: 'Duración máxima de suspensión provisional de funciones',
+        valor_exacto: '6 meses (salvo paralización imputable al interesado)',
+        trampa_habitual: 'Decir 3 meses o 1 año.',
       },
     ],
   },
@@ -249,19 +258,19 @@ export const MOCK_PREGUNTAS: Pregunta[] = [
     id: 'preg-1-1',
     tema_id: 1,
     seccion_id: 'sec-1-1',
-    enunciado: 'Según el artículo 17 de la Constitución Española de 1978, ¿cuál es el plazo máximo absoluto en el que un detenido debe ser puesto en libertad o a disposición judicial en detención ordinaria?',
+    enunciado: 'Según el Estatuto Básico del Empleado Público (TREBEP), ¿en qué plazo prescriben las faltas disciplinarias muy graves cometidas por los empleados públicos?',
     opciones: [
-      'En el plazo estrictamente necesario, con un límite máximo improrrogable de 72 horas.',
-      'En el plazo máximo de 48 horas, prorrogables por otras 24 horas por el Juez de Instrucción.',
-      'En el plazo improrrogable de 24 horas, debiendo incoarse de oficio el procedimiento de habeas corpus.',
-      'En el plazo de 72 horas naturales, ampliable a 5 días adicionales en cualquier delito común.',
+      'A los 3 años desde su comisión.',
+      'A los 2 años desde que se hubieran cometido.',
+      'A los 6 meses desde su incoación.',
+      'A los 5 años en todo caso.',
     ],
     respuesta_correcta: 0,
-    explicacion_profesor: 'El Art. 17.2 CE es tajante: la detención no podrá durar más del tiempo estrictamente necesario y, "en todo caso, en el plazo máximo de setenta y dos horas, el detenido deberá ser puesto en libertad o a disposición de la autoridad judicial". Las 48 horas no existen en la CE y la prórroga de hasta 48 horas más solo cabe para bandas armadas/terrorismo (Art. 520 bis LECrim), no en régimen general.',
-    cita_exacta: 'y, en todo caso, en el plazo máximo de setenta y dos horas, el detenido deberá ser puesto en libertad o a disposición de la autoridad judicial.',
-    dato_clave_etiqueta: 'Art. 17.2 CE: 72 horas',
+    explicacion_profesor: '**✅ Por qué es la correcta:** El TREBEP establece taxativamente que las faltas muy graves prescriben a los 3 años, las graves a los 2 años y las leves a los 6 meses.\n\n**⚠️ Por qué fallan las demás (La Trampa):** 2 años es el plazo de prescripción para las faltas graves, 6 meses es el de las faltas leves (y las sanciones leves prescriben al año).\n\n**🚒 Ejemplo práctico / Regla mnemotécnica:** Regla escalonada 3-2-6 meses para faltas (Muy grave = 3 años, Grave = 2 años, Leve = 6 meses).',
+    cita_exacta: 'Las infracciones muy graves prescribirán a los tres años, las graves a los dos años y las leves a los seis meses.',
+    dato_clave_etiqueta: 'TREBEP: Faltas muy graves prescriben a los 3 años',
     caja_leitner: 0,
-    proxima_revision: '2026-10-16T10:00:00.000Z', // Vencida (en llamas)
+    proxima_revision: '2026-10-16T10:00:00.000Z',
     fallos_totales: 2,
     aciertos_consecutivos: 0,
     ultima_vez_vista: '2026-10-15T10:00:00.000Z',
@@ -270,19 +279,19 @@ export const MOCK_PREGUNTAS: Pregunta[] = [
     id: 'preg-1-2',
     tema_id: 1,
     seccion_id: 'sec-1-1',
-    enunciado: '¿Qué mayoría y procedimiento exige el artículo 168 de la Constitución Española para la revisión parcial que afecte a la Sección 1ª del Capítulo II del Título I?',
+    enunciado: 'Conforme al TREBEP, ¿qué requisito de servicios prestados se exige con carácter general a un funcionario de carrera para solicitar la excedencia voluntaria por interés particular?',
     opciones: [
-      'Aprobación del principio por mayoría de dos tercios de cada Cámara y disolución inmediata de las Cortes Generales.',
-      'Aprobación por mayoría de tres quintos de cada Cámara sin necesidad de disolver las Cortes Generales.',
-      'Aprobación por mayoría absoluta del Congreso de los Diputados y ratificación por dos tercios del Senado.',
-      'Aprobación por dos tercios del Congreso y ratificación obligatoria en referéndum sin disolución de Cortes.',
+      'Haber prestado servicios efectivos en cualquiera de las Administraciones Públicas durante al menos 5 años inmediatamente anteriores.',
+      'Haber completado un mínimo de 3 años de servicio activo continuado.',
+      'No se exige período mínimo de servicios previos si se solicita por un período inferior a 2 años.',
+      'Haber superado el período de prácticas y contar con al menos 1 año de nombramiento definitivo.',
     ],
     respuesta_correcta: 0,
-    explicacion_profesor: 'La reforma agravada (Art. 168 CE) afecta al Título Preliminar, Sección 1ª Cap. II Tít. I (Arts. 15-29) o Título II (Corona). Exige 2/3 de cada Cámara, disolución inmediata de Cortes, ratificación por las nuevas Cámaras elegidas (2/3) y referéndum obligatorio. La mayoría de 3/5 es para el procedimiento ordinario del Art. 167.',
-    cita_exacta: 'se procederá a la aprobación del principio por mayoría de dos tercios de cada Cámara, y a la disolución inmediata de las Cortes.',
-    dato_clave_etiqueta: 'Art. 168 CE: 2/3 + disolución Cortes',
+    explicacion_profesor: '**✅ Por qué es la correcta:** Para la excedencia voluntaria por interés particular, el funcionario de carrera debe haber prestado servicios efectivos durante al menos 5 años inmediatamente anteriores.\n\n**⚠️ Por qué fallan las demás (La Trampa):** No son 3 años ni 1 año. Además, esta modalidad no devenga retribuciones ni computa tiempo a efectos de ascensos, trienios ni derechos pasivos.\n\n**🚒 Ejemplo práctico / Regla mnemotécnica:** "5 para ti": 5 años previos para pedir interés particular.',
+    cita_exacta: 'haber prestado servicios efectivos en cualquiera de las Administraciones Públicas durante un periodo mínimo de cinco años inmediatamente anteriores.',
+    dato_clave_etiqueta: 'Excedencia interés particular: 5 años previos',
     caja_leitner: 1,
-    proxima_revision: '2026-10-16T11:00:00.000Z', // Vencida
+    proxima_revision: '2026-10-16T11:00:00.000Z',
     fallos_totales: 1,
     aciertos_consecutivos: 1,
     ultima_vez_vista: '2026-10-15T11:00:00.000Z',

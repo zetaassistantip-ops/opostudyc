@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { TEMAS_CAM } from '@/lib/mock-data';
+import { obtenerTextoTemario } from '@/lib/temario-loader';
 
 // Obligatorio en Next.js App Router para evitar Timeouts en Vercel
 export const maxDuration = 60;
@@ -26,8 +28,9 @@ export async function POST(req: NextRequest) {
 
     const { temaId, forzarGeneracion = false, userId, cantidad = 6 } = body;
     const numGenerar = Math.max(1, Math.min(10, Number(cantidad) || 6));
+    const temaIdNum = Number(temaId);
 
-    if (!temaId || typeof temaId !== 'number') {
+    if (!temaId || isNaN(temaIdNum) || typeof temaId !== 'number') {
       return NextResponse.json(
         { error: 'El parámetro temaId es obligatorio y debe ser un número entero.' },
         { status: 400 }
@@ -51,16 +54,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Obtener información del tema oficial
-    const { data: tema, error: errorTema } = await supabase
+    // 1. Obtener información del tema oficial mediante búsqueda estricta por ID
+    let { data: tema } = await supabase
       .from('temas')
       .select('*')
-      .eq('id', temaId)
-      .single();
+      .eq('id', temaIdNum)
+      .maybeSingle();
 
-    if (errorTema || !tema) {
+    if (!tema) {
+      const temaRef = TEMAS_CAM.find((t) => Number(t.id) === temaIdNum);
+      if (temaRef) {
+        tema = { id: temaRef.id, titulo: temaRef.titulo, bloque: temaRef.bloque };
+      }
+    }
+
+    if (!tema) {
       return NextResponse.json(
-        { error: `No se encontró el Tema ${temaId} en la base de datos (${errorTema?.message || 'Inexistente'}).` },
+        { error: `No se encontró el Tema ${temaIdNum} en el temario oficial ni en la base de datos.` },
         { status: 404 }
       );
     }
@@ -89,13 +99,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Obtener o verificar sección con contenido de temario
-    const { data: secciones } = await supabase
-      .from('secciones_temario')
-      .select('*')
-      .eq('tema_id', temaId);
-
-    let seccionPrincipal = secciones && secciones.length > 0 ? secciones[0] : null;
+    // 3. Obtener texto del temario verificado (de Supabase o archivos locales PDF/TXT)
+    const temarioInfo = await obtenerTextoTemario(temaIdNum, supabase);
+    const textoBase = temarioInfo.texto;
 
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
@@ -122,8 +128,13 @@ export async function POST(req: NextRequest) {
           .join('\n')
       : 'Ninguna pregunta generada todavía en la base de datos para este tema.';
 
-    const systemInstruction = `Actúa como Catedrático en Psicometría y Presidente del Tribunal Calificador de las oposiciones del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
-Tu objetivo es generar un lote ultrarrápido y concentrado de EXACTAMENTE ${numGenerar} preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas en el temario oficial.
+    const systemInstruction = `REGLA DE HIERRO ANTI-INTRUSIÓN: Estás generando preguntas EXCLUSIVAMENTE para el Tema ${tema.id}: '${tema.titulo}' del temario oficial de Bomberos de la Comunidad de Madrid.
+1. Basa el 100% de las preguntas única y exclusivamente en el TEXTO DEL TEMARIO adjunto y en la materia estricta de '${tema.titulo}'.
+2. Queda TERMINANTEMENTE PROHIBIDO mezclar materias de otros temas o usar plantillas genéricas de otras oposiciones (por ejemplo: prohibido preguntar Derechos Fundamentales o Art. 15 de la Constitución en el Tema 1 de Función Pública; prohibido mezclar temas distintos).
+3. Antes de devolver el JSON, verifica una por una que cada pregunta pertenece inequívocamente a '${tema.titulo}'.
+
+Actúa como Catedrático en Psicometría y Presidente del Tribunal Calificador de las oposiciones del Cuerpo de Bomberos de la Comunidad de Madrid (CAM).
+Tu objetivo es generar un lote ultrarrápido y concentrado de EXACTAMENTE ${numGenerar} preguntas tipo test de 4 opciones de máxima exigencia discriminatoria basadas en el temario oficial del Tema ${tema.id}: ${tema.titulo}.
 
 REGLAS INQUEBRANTABLES:
 1. REGLA CRÍTICA DE NO DUPLICACIÓN:
@@ -139,7 +150,7 @@ Como la aplicación baraja aleatoriamente el orden de las 4 opciones, queda TERM
 3. ISOMORFISMO Y CONTROL DE SESGO DE LONGITUD:
 La opción correcta NO puede ser sistemáticamente la más larga ni la más detallada. Los 3 distractores deben tener exactamente la misma estructura gramatical, nivel de tecnicismo y longitud aproximada (en palabras) que la opción correcta.
 
-4. ENUNCIADOS NEGATIVOS (1 o 2 de las 6 preguntas):
+4. ENUNCIADOS NEGATIVOS (1 o 2 de las preguntas):
 Al menos 1 o 2 preguntas deben buscar la opción falsa o incorrecta (ej.: "¿Cuál de las siguientes afirmaciones es INCORRECTA?", "Señale la opción que NO corresponde..."). Escribe siempre las palabras "NO", "INCORRECTA" o "EXCEPTO" en MAYÚSCULAS dentro del enunciado.
 
 5. MATRIZ DE TRAMPAS BOMBEROS CAM:
@@ -156,29 +167,16 @@ Debe seguir OBLIGATORIAMENTE esta estructura pedagógica en 3 partes (usando sal
 - **⚠️ Por qué fallan las demás (La Trampa):** Explicación explícita de por qué las otras opciones son falsas o qué trampa contienen.
 - **🚒 Ejemplo práctico / Regla mnemotécnica:** Un caso práctico real de intervención de bomberos o un truco visual/mnemotécnico breve para no olvidarlo nunca.`;
 
-    const textoBase = seccionPrincipal?.contenido_markdown
-      ? seccionPrincipal.contenido_markdown.slice(0, 18000)
-      : `Tema ${tema.id}: ${tema.titulo} (${tema.bloque}) del Cuerpo de Bomberos de la Comunidad de Madrid.`;
-
     const promptUser = `TEMA NÚMERO: ${tema.id} - ${tema.titulo} (Bloque: ${tema.bloque})
+FUENTE DEL TEMARIO: ${temarioInfo.fuente}
 
-TEXTO OFICIAL DISPONIBLE:
+TEXTO OFICIAL DISPONIBLE DE ESTE TEMA:
 ${textoBase}
 
-Genera EXACTAMENTE 6 preguntas NUEVAS de nivel examen oficial que no repitan ninguna de las existentes.
-${
-  !seccionPrincipal || !seccionPrincipal.contenido_markdown || seccionPrincipal.contenido_markdown.length < 300
-    ? 'Además, incluye un resumen técnico denso y estructurado en "contenido_sintesis_markdown" para guardarlo como temario base de este tema.'
-    : ''
-}
+Genera EXACTAMENTE ${numGenerar} preguntas NUEVAS de nivel examen oficial para el Tema ${tema.id}: '${tema.titulo}' que no repitan ninguna de las existentes y pertenezcan 100% a este tema.
 
 Devuelve ÚNICAMENTE un JSON válido con este formato:
 {
-  ${
-    !seccionPrincipal || !seccionPrincipal.contenido_markdown || seccionPrincipal.contenido_markdown.length < 300
-      ? '"contenido_sintesis_markdown": "Resumen técnico y normativo completo...",'
-      : ''
-  }
   "preguntas": [
     {
       "enunciado": "Enunciado riguroso de examen...",
@@ -197,7 +195,7 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       config: {
         systemInstruction,
         responseMimeType: 'application/json',
-        temperature: 0.25,
+        temperature: 0.2,
       },
     });
 
@@ -269,26 +267,56 @@ Devuelve ÚNICAMENTE un JSON válido con este formato:
       );
     }
 
-    // Si no había sección y Gemini generó la síntesis, guardarla en secciones_temario
-    if (!seccionPrincipal && sintesisTemario) {
-      const { data: nuevaSec } = await supabase
+    // Si Gemini generó la síntesis, guardarla en secciones_temario
+    if (sintesisTemario) {
+      await supabase
         .from('secciones_temario')
         .insert({
-          tema_id: temaId,
+          tema_id: temaIdNum,
           epigrafe: `Contenido Oficial: ${tema.titulo}`,
           contenido_markdown: sintesisTemario,
           datos_criticos: [],
-        })
-        .select()
-        .single();
-
-      if (nuevaSec) seccionPrincipal = nuevaSec;
+        });
     }
 
-    // 5. Mapear e insertar el lote de preguntas en Supabase
-    const preguntasParaInsertar = preguntasGeneradas.slice(0, numGenerar).map((p) => ({
-      tema_id: temaId,
-      seccion_id: seccionPrincipal?.id || null,
+    // 5. Blindaje de seguridad: Filtrar preguntas intrusas antes de insertar
+    const preguntasFiltradasSeguras = preguntasGeneradas.filter((p) => {
+      if (!p.enunciado || p.enunciado.trim().length < 15) return false;
+      if (!Array.isArray(p.opciones) || p.opciones.length < 4) return false;
+
+      // Blindaje Tema 1 (La Función Pública): Prohibida Constitución Española o Art 15
+      if (temaIdNum === 1) {
+        const fullCheck = `${p.enunciado} ${p.opciones.join(' ')} ${p.explicacion_profesor || ''}`.toLowerCase();
+        if (
+          fullCheck.includes('constitución') ||
+          fullCheck.includes('art. 15') ||
+          fullCheck.includes('artículo 15') ||
+          fullCheck.includes('integridad física') ||
+          fullCheck.includes('tortura') ||
+          fullCheck.includes('habeas corpus') ||
+          fullCheck.includes('corona')
+        ) {
+          console.warn('⚠️ [motor-tema] Pregunta intrusa del Tema 1 descartada automáticamente:', p.enunciado);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (preguntasFiltradasSeguras.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'Las preguntas generadas no superaron el filtro de coherencia temática anti-intrusión.',
+          preguntas: preguntasExistentes || [],
+        },
+        { status: 500 }
+      );
+    }
+
+    // Mapear e insertar el lote de preguntas seguras en Supabase
+    const preguntasParaInsertar = preguntasFiltradasSeguras.slice(0, numGenerar).map((p) => ({
+      tema_id: temaIdNum,
+      seccion_id: null,
       enunciado: p.enunciado.trim(),
       opciones: p.opciones,
       respuesta_correcta: p.respuesta_correcta,

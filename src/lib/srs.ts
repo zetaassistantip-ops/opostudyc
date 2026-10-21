@@ -96,33 +96,32 @@ export function calcularSRS(
   fechaBase: Date = new Date()
 ): ResultadoSRS {
   const ahora = fechaBase.getTime();
-  const MINUTO = 60 * 1000;
-  const HORA = 60 * MINUTO;
-  const DIA = 24 * HORA;
+  const DIA = 24 * 60 * 60 * 1000;
 
   if (tipo === 'fallo') {
-    // Fallo: Cae a Caja 0 (Fallo Activo), suma fallo, y vuelve a salir en 10 minutos (en la misma sesión)
-    const proxima = new Date(ahora + 10 * MINUTO);
+    // Si FALLA (caja_srs = 0): +1 día (mañana)
+    const proxima = new Date(ahora + 1 * DIA);
     return {
       caja_leitner: 0,
       proxima_revision: proxima.toISOString(),
       fallos_totales: (preguntaActual.fallos_totales ?? 0) + 1,
       aciertos_consecutivos: 0,
       ultima_vez_vista: new Date(ahora).toISOString(),
-      intervaloTexto: 'En 10 minutos (Repaso inmediato hoy)',
+      intervaloTexto: 'Mañana (+1 día)',
     };
   }
 
   if (tipo === 'acierto_duda') {
-    // Acierto con duda / por descarte: No se da por dominada. Se fija en Caja 1 y se repasa en 24h
-    const proxima = new Date(ahora + 1 * DIA);
+    // Acierto con duda / por descarte: No se da por dominada. Se fija en Caja 1 y se repasa en 1-2 días
+    const diasFuzz = 1 + Math.floor(Math.random() * 2);
+    const proxima = new Date(ahora + diasFuzz * DIA);
     return {
       caja_leitner: 1,
       proxima_revision: proxima.toISOString(),
       fallos_totales: preguntaActual.fallos_totales ?? 0,
       aciertos_consecutivos: (preguntaActual.aciertos_consecutivos ?? 0) + 1,
       ultima_vez_vista: new Date(ahora).toISOString(),
-      intervaloTexto: 'En 24 horas (Afianzar duda)',
+      intervaloTexto: `En ${diasFuzz} día(s) (Afianzar duda)`,
     };
   }
 
@@ -131,34 +130,39 @@ export function calcularSRS(
   // Si ya existía registro con caja >= 1: sube caja_leitner + 1 (máx 5)
   const cajaActual = preguntaActual.caja_leitner ?? 0;
   const nuevaCaja = Math.min(5, Math.max(1, cajaActual + 1));
-  let intervaloMs: number;
+  let diasFuzz: number;
   let intervaloTexto: string;
 
   switch (nuevaCaja) {
     case 1:
-      intervaloMs = 1 * DIA;
-      intervaloTexto = 'En 1 día';
+      // Caja 1 (1ª vez acertada): entre 2 y 4 días
+      diasFuzz = 2 + Math.floor(Math.random() * 3);
+      intervaloTexto = `En ${diasFuzz} días`;
       break;
     case 2:
-      intervaloMs = 3 * DIA;
-      intervaloTexto = 'En 3 días';
+      // Caja 2: entre 6 y 8 días
+      diasFuzz = 6 + Math.floor(Math.random() * 3);
+      intervaloTexto = `En ${diasFuzz} días`;
       break;
     case 3:
-      intervaloMs = 7 * DIA;
-      intervaloTexto = 'En 1 semana (7 días)';
+      // Caja 3: entre 15 y 20 días
+      diasFuzz = 15 + Math.floor(Math.random() * 6);
+      intervaloTexto = `En ${diasFuzz} días`;
       break;
     case 4:
-      intervaloMs = 16 * DIA;
-      intervaloTexto = 'En 16 días';
+      // Caja 4: entre 35 y 45 días
+      diasFuzz = 35 + Math.floor(Math.random() * 11);
+      intervaloTexto = `En ${diasFuzz} días`;
       break;
     case 5:
     default:
-      intervaloMs = 35 * DIA;
-      intervaloTexto = 'En 35 días (¡Dominada!)';
+      // Caja >= 5: entre 90 y 120 días
+      diasFuzz = 90 + Math.floor(Math.random() * 31);
+      intervaloTexto = `En ${diasFuzz} días (¡Dominada!)`;
       break;
   }
 
-  const proxima = new Date(ahora + intervaloMs);
+  const proxima = new Date(ahora + diasFuzz * DIA);
   return {
     caja_leitner: nuevaCaja,
     proxima_revision: proxima.toISOString(),
@@ -178,7 +182,7 @@ export function calcularSRS(
  */
 export function seleccionarMixTribunal(
   todasLasPreguntas: Pregunta[],
-  cantidad: number = 15,
+  cantidad: number = 25,
   filtroTemaId?: number
 ): PreguntaJuego[] {
   let pool = todasLasPreguntas;
@@ -193,12 +197,12 @@ export function seleccionarMixTribunal(
     (p) => p.ultima_vez_vista !== null && new Date(p.proxima_revision).getTime() <= ahora
   );
 
-  // Ordenar vencidas: primero las que más se han fallado, luego menor caja Leitner
+  // Ordenar vencidas priorizando menor caja_leitner (Caja 0 y 1 primero) y más fallos históricos
   vencidas.sort((a, b) => {
-    if (b.fallos_totales !== a.fallos_totales) {
-      return b.fallos_totales - a.fallos_totales;
+    if (a.caja_leitner !== b.caja_leitner) {
+      return a.caja_leitner - b.caja_leitner;
     }
-    return a.caja_leitner - b.caja_leitner;
+    return (b.fallos_totales ?? 0) - (a.fallos_totales ?? 0);
   });
 
   // 2. Preguntas nuevas nunca vistas
@@ -254,17 +258,17 @@ export function seleccionarCazadorFallos(
 export function obtenerEtiquetaCaja(caja: number): { texto: string; color: string; badgeBg: string } {
   switch (caja) {
     case 0:
-      return { texto: 'Nueva / Fallada', color: 'text-red-400', badgeBg: 'bg-red-950/70 border-red-800' };
+      return { texto: 'Nueva / Fallada (1d)', color: 'text-red-400', badgeBg: 'bg-red-950/70 border-red-800' };
     case 1:
-      return { texto: 'En observación (24h)', color: 'text-amber-400', badgeBg: 'bg-amber-950/70 border-amber-800' };
+      return { texto: 'En observación (2-4d)', color: 'text-amber-400', badgeBg: 'bg-amber-950/70 border-amber-800' };
     case 2:
-      return { texto: 'Afianzando (3d)', color: 'text-yellow-400', badgeBg: 'bg-yellow-950/70 border-yellow-800' };
+      return { texto: 'Afianzando (6-8d)', color: 'text-yellow-400', badgeBg: 'bg-yellow-950/70 border-yellow-800' };
     case 3:
-      return { texto: 'Asentada (7d)', color: 'text-blue-400', badgeBg: 'bg-blue-950/70 border-blue-800' };
+      return { texto: 'Asentada (15-20d)', color: 'text-blue-400', badgeBg: 'bg-blue-950/70 border-blue-800' };
     case 4:
-      return { texto: 'Consolidada (16d)', color: 'text-indigo-400', badgeBg: 'bg-indigo-950/70 border-indigo-800' };
+      return { texto: 'Consolidada (35-45d)', color: 'text-indigo-400', badgeBg: 'bg-indigo-950/70 border-indigo-800' };
     case 5:
     default:
-      return { texto: 'Dominada (35d)', color: 'text-emerald-400', badgeBg: 'bg-emerald-950/70 border-emerald-800' };
+      return { texto: 'Dominada (90-120d)', color: 'text-emerald-400', badgeBg: 'bg-emerald-950/70 border-emerald-800' };
   }
 }

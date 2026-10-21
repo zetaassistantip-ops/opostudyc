@@ -23,7 +23,12 @@ export default function BottomNav({ badgeRepaso }: BottomNavProps = {}) {
       label: 'Repaso SRS',
       icon: Flame,
       active: pathname.startsWith('/jugar') && !pathname.includes('modo=fallos'),
-      badge: badgeRepaso && badgeRepaso > 0 ? String(badgeRepaso) : undefined,
+      badge:
+        badgeRepaso && badgeRepaso > 0
+          ? badgeRepaso > 25
+            ? '25'
+            : String(badgeRepaso)
+          : undefined,
     },
     {
       href: '/fichas',

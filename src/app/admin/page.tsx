@@ -52,7 +52,9 @@ import {
   limpiarReportesFichasMasivo,
   aprobarImagenesPropuestasMasivo,
   rechazarImagenesPropuestasMasivo,
+  limpiarPreguntasIntrusasTema1,
 } from '@/lib/supabase';
+import { TEMAS_CAM } from '@/lib/mock-data';
 import { useAuth } from '@/context/AuthContext';
 import BottomNav from '@/components/BottomNav';
 
@@ -107,6 +109,9 @@ export default function AdminPage() {
   const [busquedaPregunta, setBusquedaPregunta] = useState('');
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false);
   const [seleccionadasPreguntas, setSeleccionadasPreguntas] = useState<string[]>([]);
+  // Estado auditoría de coherencia de preguntas con su tema
+  const [filtroAuditoriaActivo, setFiltroAuditoriaActivo] = useState(false);
+  const [motivosAuditoria, setMotivosAuditoria] = useState<Record<string, string>>({});
 
   // Estado pestaña 4: Moderación de Fichas Anki
   const [fichasModeracion, setFichasModeracion] = useState<FichaTecnica[]>([]);
@@ -189,12 +194,106 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (esAdmin) {
+      limpiarPreguntasIntrusasTema1().then((res) => {
+        if (res.eliminadas > 0) {
+          mostrarToast(`🧹 Se eliminaron automáticamente ${res.eliminadas} preguntas intrusas de la Constitución en el Tema 1`, 'exito');
+        }
+      });
       cargarUsuarios();
       cargarMemoria();
       cargarPreguntasYTemas();
       cargarFichasModeracion();
     }
   }, [esAdmin]);
+
+  // Auditoría profunda de coherencia temática
+  const analizarCoherenciaPregunta = (p: Pregunta): { sospechosa: boolean; motivo?: string } => {
+    const text = `${p.enunciado} ${(p.opciones || []).join(' ')} ${p.explicacion_profesor || ''} ${p.dato_clave_etiqueta || ''}`.toLowerCase();
+    const temaId = Number(p.tema_id);
+
+    // 1. Tema 1: La Función Pública (TREBEP, Ley 1/1986 CAM)
+    if (temaId === 1) {
+      if (
+        text.includes('constitución') ||
+        text.includes('constitucion') ||
+        text.includes('art. 15') ||
+        text.includes('artículo 15') ||
+        text.includes('articulo 15') ||
+        text.includes('integridad física') ||
+        text.includes('tortura') ||
+        text.includes('habeas corpus') ||
+        text.includes('corona') ||
+        text.includes('derechos fundamentales') ||
+        text.includes('art. 168') ||
+        text.includes('artículo 168')
+      ) {
+        return { sospechosa: true, motivo: 'Contiene materia de Constitución Española ajena a La Función Pública' };
+      }
+      if (text.includes('hidráulica') || text.includes('bomba centrífuga') || text.includes('m.c.a.') || text.includes('euroclases')) {
+        return { sospechosa: true, motivo: 'Contiene conceptos técnicos/fuego ajenos a legislación' };
+      }
+    }
+
+    // 2. Temas legislativos (1 al 6, 9) que contengan términos exclusivos de fuego/hidráulica/rescate
+    if ([1, 2, 3, 4, 5, 6, 9].includes(temaId)) {
+      if (text.includes('presión de prueba') || text.includes('pérdida de carga') || text.includes('manguera de 45') || text.includes('flashover') || text.includes('backdraft')) {
+        return { sospechosa: true, motivo: `Materia técnica/fuego asignada erróneamente al tema legislativo #${temaId}` };
+      }
+    }
+
+    // 3. Temas técnicos específicos (10 al 35) con preguntas de Constitución o TREBEP
+    if (temaId >= 10) {
+      if (text.includes('habeas corpus') || text.includes('artículo 15 de la constitución') || text.includes('título preliminar de la constitución') || text.includes('reforma agravada de la constitución')) {
+        return { sospechosa: true, motivo: `Materia constitucional en tema técnico #${temaId}` };
+      }
+    }
+
+    // 4. Tema 2: Igualdad
+    if (temaId === 2) {
+      if (text.includes('hidráulica') || text.includes('infoma') || text.includes('abejas') || text.includes('descarcelación')) {
+        return { sospechosa: true, motivo: 'Concepto no relacionado con Igualdad y No Discriminación' };
+      }
+    }
+
+    // 5. Tema 15: Hidráulica
+    if (temaId === 15) {
+      if (text.includes('código de conducta') || text.includes('trebep') || text.includes('violencia de género')) {
+        return { sospechosa: true, motivo: 'Concepto legislativo ajeno a Hidráulica y Bombas' };
+      }
+    }
+
+    // 6. Tema 30: Abejas y avispas
+    if (temaId === 30) {
+      if (!text.includes('abeja') && !text.includes('avispa') && !text.includes('himenóptero') && !text.includes('piquete') && !text.includes('velutina') && !text.includes('enjambre') && !text.includes('traje')) {
+        return { sospechosa: true, motivo: 'No menciona abejas, avispas, enjambres ni himenópteros' };
+      }
+    }
+
+    return { sospechosa: false };
+  };
+
+  const handleEjecutarAuditoria = () => {
+    const motivosMap: Record<string, string> = {};
+    const sospechosas: string[] = [];
+
+    preguntas.forEach((p) => {
+      const res = analizarCoherenciaPregunta(p);
+      if (res.sospechosa) {
+        motivosMap[p.id] = res.motivo || 'Posible incoherencia temática con su tema oficial';
+        sospechosas.push(p.id);
+      }
+    });
+
+    setMotivosAuditoria(motivosMap);
+    setFiltroAuditoriaActivo(true);
+    setSeleccionadasPreguntas(sospechosas);
+
+    if (sospechosas.length > 0) {
+      mostrarToast(`⚠️ Se detectaron ${sospechosas.length} preguntas sospechosas. Han sido preseleccionadas para eliminar.`, 'error');
+    } else {
+      mostrarToast('✅ ¡Auditoría perfecta! El 100% de las preguntas corresponden a su tema oficial.', 'exito');
+    }
+  };
 
   // Acciones de usuarios
   const handleActivarModoDios = (targetUser: PerfilUsuario) => {
@@ -518,10 +617,13 @@ export default function AdminPage() {
   const preguntasFiltradas = useMemo(() => {
     return preguntas
       .filter((p) => {
+        if (filtroAuditoriaActivo && !motivosAuditoria[p.id]) return false;
         if (temaSeleccionado !== 'all' && p.tema_id !== temaSeleccionado) return false;
-        if (pestañaModeracion === 'malas' && (p.votos_mala || 0) === 0) return false;
-        if (pestañaModeracion === 'regulares' && (p.votos_regular || 0) === 0) return false;
-        if (pestañaModeracion === 'buenas' && (p.votos_buena || 0) === 0) return false;
+        if (!filtroAuditoriaActivo) {
+          if (pestañaModeracion === 'malas' && (p.votos_mala || 0) === 0) return false;
+          if (pestañaModeracion === 'regulares' && (p.votos_regular || 0) === 0) return false;
+          if (pestañaModeracion === 'buenas' && (p.votos_buena || 0) === 0) return false;
+        }
         if (busquedaPregunta.trim() !== '') {
           const q = busquedaPregunta.toLowerCase();
           const enun = p.enunciado.toLowerCase();
@@ -531,12 +633,13 @@ export default function AdminPage() {
         return true;
       })
       .sort((a, b) => {
+        if (filtroAuditoriaActivo) return 0;
         if (pestañaModeracion === 'malas') return (b.votos_mala || 0) - (a.votos_mala || 0);
         if (pestañaModeracion === 'regulares') return (b.votos_regular || 0) - (a.votos_regular || 0);
         if (pestañaModeracion === 'buenas') return (b.votos_buena || 0) - (a.votos_buena || 0);
         return 0;
       });
-  }, [preguntas, pestañaModeracion, temaSeleccionado, busquedaPregunta]);
+  }, [preguntas, pestañaModeracion, temaSeleccionado, busquedaPregunta, filtroAuditoriaActivo, motivosAuditoria]);
 
   // Filtrado de fichas anki para moderación
   const fichasFiltradas = useMemo(() => {
@@ -968,6 +1071,47 @@ export default function AdminPage() {
             </button>
           </div>
 
+          {/* Botón destacado de Auditoría Anti-Intrusión */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 p-3 rounded-xl bg-amber-50 border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a]">
+            <div>
+              <h3 className="text-xs font-black text-slate-950 flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-amber-700" />
+                <span>Auditoría de Integridad Temática (Anti-Intrusas)</span>
+              </h3>
+              <p className="text-[11px] text-slate-600 mt-0.5 font-medium">
+                Escanea todo el banco y detecta preguntas que no correspondan al temario oficial de su tema.
+              </p>
+            </div>
+            <button
+              onClick={handleEjecutarAuditoria}
+              className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:translate-x-[1px] active:translate-y-[1px] text-slate-950 font-black text-xs border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>🔍 Auditar coherencia de todas las preguntas con su Tema</span>
+            </button>
+          </div>
+
+          {/* Banner de Auditoría Activa */}
+          {filtroAuditoriaActivo && (
+            <div className="p-3 rounded-xl bg-rose-50 border-2 border-rose-600 shadow-[2px_2px_0px_0px_#dc2626] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0" />
+                <span className="text-xs font-bold text-rose-950">
+                  Modo Auditoría Activo: Mostrando {preguntasFiltradas.length} preguntas sospechosas preseleccionadas para eliminar.
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setFiltroAuditoriaActivo(false);
+                  setMotivosAuditoria({});
+                }}
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-900 text-xs font-bold text-slate-800 hover:bg-slate-100 cursor-pointer"
+              >
+                ✕ Salir de la auditoría
+              </button>
+            </div>
+          )}
+
           {/* Filtros de tema, buscador y botón de selección masiva */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <select
@@ -1041,14 +1185,26 @@ export default function AdminPage() {
             <div className="space-y-3">
               {preguntasFiltradas.map((p) => {
                 const seleccionada = seleccionadasPreguntas.includes(p.id);
+                const motivoSospechosa = motivosAuditoria[p.id];
 
                 return (
                   <div
                     key={p.id}
                     className={`p-3.5 rounded-xl border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] bg-white space-y-3 transition-all ${
-                      seleccionada ? 'bg-amber-50/80 ring-2 ring-slate-950' : ''
+                      motivoSospechosa
+                        ? 'border-rose-600 bg-rose-50/60 ring-2 ring-rose-500'
+                        : seleccionada
+                        ? 'bg-amber-50/80 ring-2 ring-slate-950'
+                        : ''
                     }`}
                   >
+                    {/* Alerta de motivo sospechoso si aplica */}
+                    {motivoSospechosa && (
+                      <div className="p-2 rounded-lg bg-rose-100/90 border border-rose-300 text-rose-950 text-xs font-bold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>⚠️ Incoherencia detectada: {motivoSospechosa}</span>
+                      </div>
+                    )}
                     {/* Encabezado: Checkbox + Tema + Votos */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">

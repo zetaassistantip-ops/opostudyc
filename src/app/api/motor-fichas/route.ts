@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { TEMAS_CAM } from '@/lib/mock-data';
+import { obtenerTextoTemario } from '@/lib/temario-loader';
 
 // Obligatorio en Next.js App Router para evitar Timeouts en Vercel
 export const maxDuration = 60;
@@ -23,8 +25,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { temaId, userId } = body;
+    const temaIdNum = Number(temaId);
 
-    if (!temaId || typeof temaId !== 'number') {
+    if (!temaId || isNaN(temaIdNum) || typeof temaId !== 'number') {
       return NextResponse.json(
         { error: 'El parámetro temaId es obligatorio y debe ser un número entero.' },
         { status: 400 }
@@ -48,16 +51,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Obtener información del tema oficial
-    const { data: tema, error: errorTema } = await supabase
+    // 1. Obtener información del tema oficial mediante búsqueda estricta por ID
+    let { data: tema } = await supabase
       .from('temas')
       .select('*')
-      .eq('id', temaId)
-      .single();
+      .eq('id', temaIdNum)
+      .maybeSingle();
 
-    if (errorTema || !tema) {
+    if (!tema) {
+      const temaRef = TEMAS_CAM.find((t) => Number(t.id) === temaIdNum);
+      if (temaRef) {
+        tema = { id: temaRef.id, titulo: temaRef.titulo, bloque: temaRef.bloque };
+      }
+    }
+
+    if (!tema) {
       return NextResponse.json(
-        { error: `No se encontró el Tema ${temaId} en la base de datos.` },
+        { error: `No se encontró el Tema ${temaIdNum} en el temario oficial ni en la base de datos.` },
         { status: 404 }
       );
     }
@@ -66,21 +76,14 @@ export async function POST(req: NextRequest) {
     const { data: fichasExistentes } = await supabase
       .from('fichas_tecnicas')
       .select('concepto, frente_pregunta, valor_exacto, tipo_ficha')
-      .eq('tema_id', temaId);
+      .eq('tema_id', temaIdNum);
 
     const numExistentes = fichasExistentes?.length || 0;
     const esCapa1 = numExistentes < 10;
 
-    // 3. Obtener temario base si existe en secciones_temario
-    const { data: secciones } = await supabase
-      .from('secciones_temario')
-      .select('contenido_markdown, epigrafe')
-      .eq('tema_id', temaId)
-      .limit(3);
-
-    const textoBase = secciones && secciones.length > 0 && secciones[0].contenido_markdown
-      ? secciones.map((s) => `### ${s.epigrafe}\n${s.contenido_markdown}`).join('\n\n').slice(0, 16000)
-      : `Tema ${tema.id}: ${tema.titulo} (Bloque: ${tema.bloque}) de la oposición de Bomberos de la Comunidad de Madrid.`;
+    // 3. Obtener texto del temario verificado (de Supabase o archivos locales PDF/TXT)
+    const temarioInfo = await obtenerTextoTemario(temaIdNum, supabase);
+    const textoBase = temarioInfo.texto;
 
     const listaExclusion = fichasExistentes && fichasExistentes.length > 0
       ? fichasExistentes.map((f, i) => `${i + 1}. [${f.tipo_ficha || 'concepto'}] Reto: "${f.frente_pregunta || f.concepto}" (Valor: "${f.valor_exacto}")`).join('\n')
@@ -100,7 +103,7 @@ export async function POST(req: NextRequest) {
     const directrizCapa = esCapa1
       ? `ESTRATEGIA ACTUAL: CAPA 1 - CAZA PRIORITARIA 100% EXAMEN (El tema tiene ${numExistentes} fichas en BD).
 Tu objetivo en esta Capa 1 es extraer EXCLUSIVAMENTE los datos MÁS CRÍTICOS Y PREGUNTADOS DEL TEMA:
-- Tablas normativas completas y clasificaciones oficiales de memoria obligatoria.
+- Tablas normativas completas y clasificaciones oficiales de memoria obligatoria en UNA SOLA FICHA de tipo 'tabla'.
 - Escalas, presiones de trabajo y prueba, caudales nominales, cotas y distancias mínimas/máximas.
 - Plazos fatales de revisión e inspección según reglamento.`
       : `ESTRATEGIA ACTUAL: CAPA 2 - HILAR FINO (El tema ya cuenta con ${numExistentes} fichas consolidadas en BD).
@@ -110,7 +113,12 @@ Tu objetivo en esta Capa 2 es profundizar pedagógicamente SIN REPETIR ninguno d
 - Diferencias sutiles y trampas clásicas entre conceptos muy parecidos que el tribunal suele confundir a propósito.
 - Artículos específicos y factores de corrección técnicos.`;
 
-    const systemInstruction = `Actúa como Presidente del Tribunal Calificador de Oposiciones a Bomberos de la Comunidad de Madrid (CAM) y Preparador de Élite.
+    const systemInstruction = `REGLA DE HIERRO ANTI-INTRUSIÓN: Estás generando Fichas Técnicas Anki EXCLUSIVAMENTE para el Tema ${tema.id}: '${tema.titulo}' del temario oficial de Bomberos de la Comunidad de Madrid.
+1. Basa el 100% de las fichas única y exclusivamente en el TEXTO DEL TEMARIO adjunto y en la materia estricta de '${tema.titulo}'.
+2. Queda TERMINANTEMENTE PROHIBIDO mezclar materias de otros temas o usar plantillas genéricas de otras oposiciones (por ejemplo: prohibido preguntar Derechos Fundamentales o Art. 15 de la Constitución en el Tema 1 de Función Pública; prohibido mezclar temas distintos).
+3. Antes de devolver el JSON, verifica una por una que cada ficha pertenece inequívocamente a '${tema.titulo}'.
+
+Actúa como Presidente del Tribunal Calificador de Oposiciones a Bomberos de la Comunidad de Madrid (CAM) y Preparador de Élite.
 Tu misión es diseñar Fichas Técnicas estilo Anki (formato doble cara) con FORMATO "RETO GUIADO" para el Tema ${tema.id}: ${tema.titulo}.
 
 ${directrizCapa}
@@ -119,6 +127,9 @@ REGLAS PEDAGÓGICAS ESTRICTAS (TOLERANCIA CERO):
 1. PROHIBIDO generar títulos o conceptos genéricos como "Dato técnico en...", "Normativa de...", "Artículo 5".
 2. PROHIBIDO generar respuestas huérfanas como "15 años", "3,5 bar", "6 meses" sin contexto gramatical completo.
 3. PROHIBIDO usar preguntas abiertas o telegráficas.
+4. CARA A (frente_pregunta) DEBE tener más de 20 caracteres y ser un RETO GUIADO indicando:
+   - Norma / Bloque exacto.
+   - Qué elementos exactos debe recitar mentalmente el opositor antes de voltear la tarjeta.
 
 FORMATO OBLIGATORIO DE CADA CARA:
 - CARA A (frente_pregunta) - "RETO GUIADO":
@@ -141,6 +152,7 @@ ${listaExclusion}
 ---`;
 
     const userPrompt = `TEMA ${tema.id}: ${tema.titulo} (${tema.bloque})
+FUENTE DEL TEMARIO: ${temarioInfo.fuente}
 
 TEXTO Y BASE NORMATIVA DISPONIBLE:
 ${textoBase}
@@ -234,8 +246,41 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
       );
     }
 
-    // 5. Preparar filas para insertar (sin categoria_dato, adaptativo al schema)
-    let filasAInsertar: Record<string, unknown>[] = fichasGeneradas.map((f) => {
+    // 5. Blindaje de calidad y seguridad de las fichas generadas
+    const fichasValidas = fichasGeneradas.filter((f) => {
+      const frente = (f.frente_pregunta || f.concepto || '').trim();
+      // Prohibido menos de 20 caracteres o que empiece por "Dato técnico"
+      if (frente.length < 20) return false;
+      if (/^dato\s+t[eé]cnico/i.test(frente) || /^dato\s+t[eé]cnico/i.test(f.concepto)) return false;
+
+      // Blindaje Tema 1: Prohibida Constitución Española o Art 15
+      if (temaIdNum === 1) {
+        const checkStr = `${frente} ${f.dorso_respuesta || ''} ${f.valor_exacto || ''} ${f.concepto || ''}`.toLowerCase();
+        if (
+          checkStr.includes('constitución') ||
+          checkStr.includes('art. 15') ||
+          checkStr.includes('artículo 15') ||
+          checkStr.includes('integridad física') ||
+          checkStr.includes('tortura') ||
+          checkStr.includes('habeas corpus') ||
+          checkStr.includes('corona')
+        ) {
+          console.warn('⚠️ [motor-fichas] Ficha intrusa del Tema 1 descartada automáticamente:', frente);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (fichasValidas.length === 0) {
+      return NextResponse.json(
+        { error: 'Las fichas generadas no superaron el filtro de calidad y anti-intrusión.' },
+        { status: 500 }
+      );
+    }
+
+    // Preparar filas para insertar
+    let filasAInsertar: Record<string, unknown>[] = fichasValidas.map((f) => {
       const tipo = f.tipo_ficha === 'tabla' ? 'tabla' : 'concepto';
       const frente = f.frente_pregunta?.trim() || f.concepto.trim();
       const dorso =
@@ -243,7 +288,7 @@ Devuelve ÚNICAMENTE un JSON estructurado válido:
         `${f.valor_exacto.trim()}.${f.trampa_habitual ? `\n\n⚠️ Ojo con la trampa: ${f.trampa_habitual.trim()}` : ''}`;
 
       return {
-        tema_id: temaId,
+        tema_id: temaIdNum,
         concepto: f.concepto.trim(),
         valor_exacto: f.valor_exacto.trim(),
         trampa_habitual: f.trampa_habitual ? f.trampa_habitual.trim() : '',

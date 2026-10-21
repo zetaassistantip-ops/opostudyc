@@ -61,18 +61,60 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// DELETE: Eliminar pregunta(s) permanentemente
+// DELETE: Eliminar pregunta(s) permanentemente o autolimpieza de intrusas
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, ids } = body;
+    const { id, ids, limpiarIntrusasTema1 } = body;
+    const supabase = getSupabaseAdmin();
+
+    if (limpiarIntrusasTema1) {
+      const { data: preguntasTema1, error: errFetch } = await supabase
+        .from('preguntas')
+        .select('id, enunciado, opciones, explicacion_profesor, dato_clave_etiqueta')
+        .eq('tema_id', 1);
+
+      if (errFetch) {
+        return NextResponse.json({ error: errFetch.message }, { status: 500 });
+      }
+
+      const terminosIntrusos = [
+        'constitución',
+        'constitucion',
+        'art. 15',
+        'artículo 15',
+        'articulo 15',
+        'integridad física',
+        'integridad fisica',
+        'tortura',
+        'habeas corpus',
+        'corona',
+      ];
+
+      const intrusas = (preguntasTema1 || []).filter((p) => {
+        const full = `${p.enunciado} ${(p.opciones || []).join(' ')} ${p.explicacion_profesor || ''} ${p.dato_clave_etiqueta || ''}`.toLowerCase();
+        return terminosIntrusos.some((term) => full.includes(term));
+      });
+
+      const idsIntrusas = intrusas.map((p) => p.id);
+
+      if (idsIntrusas.length > 0) {
+        await supabase.from('usuario_progreso_srs').delete().in('pregunta_id', idsIntrusas);
+        await supabase.from('preguntas').delete().in('id', idsIntrusas);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        eliminadas: idsIntrusas.length,
+        mensaje: `Se han purgado ${idsIntrusas.length} preguntas intrusas de la Constitución en el Tema 1.`,
+      });
+    }
+
     const targetIds: string[] = ids || (id ? [id] : []);
 
     if (targetIds.length === 0) {
       return NextResponse.json({ error: 'Falta el id o ids de preguntas' }, { status: 400 });
     }
-
-    const supabase = getSupabaseAdmin();
 
     // Eliminar también registros dependientes en usuario_progreso_srs si no tienen ON DELETE CASCADE
     await supabase.from('usuario_progreso_srs').delete().in('pregunta_id', targetIds);

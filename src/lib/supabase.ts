@@ -154,10 +154,49 @@ export async function getPreguntas(temaId?: number): Promise<Pregunta[]> {
                 votos_mala: p.votos_mala ?? 0,
               };
             });
-            return preguntasPersonalizadas as Pregunta[];
+            const listaSegura = preguntasPersonalizadas.filter((p) => {
+              if (Number(p.tema_id) === 1) {
+                const full = `${p.enunciado} ${(p.opciones || []).join(' ')} ${p.explicacion_profesor || ''}`.toLowerCase();
+                if (
+                  full.includes('constitución') ||
+                  full.includes('constitucion') ||
+                  full.includes('art. 15') ||
+                  full.includes('artículo 15') ||
+                  full.includes('articulo 15') ||
+                  full.includes('integridad física') ||
+                  full.includes('tortura') ||
+                  full.includes('habeas corpus') ||
+                  full.includes('corona')
+                ) {
+                  return false;
+                }
+              }
+              return true;
+            });
+            return listaSegura as Pregunta[];
           }
 
-          return rawPreguntas.map((p) => ({
+          const rawSeguras = rawPreguntas.filter((p) => {
+            if (Number(p.tema_id) === 1) {
+              const full = `${p.enunciado} ${(p.opciones || []).join(' ')} ${p.explicacion_profesor || ''}`.toLowerCase();
+              if (
+                full.includes('constitución') ||
+                full.includes('constitucion') ||
+                full.includes('art. 15') ||
+                full.includes('artículo 15') ||
+                full.includes('articulo 15') ||
+                full.includes('integridad física') ||
+                full.includes('tortura') ||
+                full.includes('habeas corpus') ||
+                full.includes('corona')
+              ) {
+                return false;
+              }
+            }
+            return true;
+          });
+
+          return rawSeguras.map((p) => ({
             ...p,
             votos_buena: p.votos_buena ?? 0,
             votos_regular: p.votos_regular ?? 0,
@@ -1677,3 +1716,22 @@ export async function resetearBancoFichasAdmin(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Purga de Supabase cualquier pregunta intrusa asignada al Tema 1 con conceptos de Constitución
+ */
+export async function limpiarPreguntasIntrusasTema1(): Promise<{ ok: boolean; eliminadas: number }> {
+  try {
+    const res = await fetch('/api/admin/preguntas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limpiarIntrusasTema1: true }),
+    });
+    const data = await res.json();
+    return { ok: data.ok === true, eliminadas: data.eliminadas || 0 };
+  } catch (e) {
+    console.warn('Aviso limpiando preguntas intrusas de Tema 1:', e);
+    return { ok: false, eliminadas: 0 };
+  }
+}
+

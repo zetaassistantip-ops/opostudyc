@@ -38,6 +38,7 @@ import UserAuthButton from '@/components/UserAuthButton';
 import RachaDiarioModal from '@/components/RachaDiarioModal';
 import BotonInstalarApp from '@/components/BotonInstalarApp';
 import ModalSimulacroConfig from '@/components/ModalSimulacroConfig';
+import InfoModal from '@/components/InfoModal';
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPrincipal() {
@@ -47,6 +48,7 @@ export default function DashboardPrincipal() {
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
   const [modalRachaAbierto, setModalRachaAbierto] = useState(false);
   const [modalSimulacroAbierto, setModalSimulacroAbierto] = useState(false);
+  const [modalInfoAbierto, setModalInfoAbierto] = useState(false);
   const [temaSeleccionadoParaTest, setTemaSeleccionadoParaTest] = useState<number | null>(null);
   const [temasSeleccionados, setTemasSeleccionados] = useState<number[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -319,12 +321,18 @@ export default function DashboardPrincipal() {
     <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-[100dvh] pb-28 px-4 pt-3 space-y-4 animate-fadeIn relative">
       {/* 1. CABECERA EDITORIAL CLEAN */}
       <header className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => setModalInfoAbierto(true)}
+          className="flex items-center gap-2.5 text-left cursor-pointer group rounded-xl p-1 -m-1 transition-all active:scale-[0.98] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          title="¿Qué es OpoStudyC? - Haz clic para ver más información"
+          aria-label="Información sobre OpoStudyC"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="OpostudyC Logo"
-            className="w-10 h-10 rounded-xl object-contain bg-[#182029] p-0.5 border border-slate-200/90 shadow-xs"
+            className="w-10 h-10 rounded-xl object-contain bg-[#182029] p-0.5 border border-slate-200/90 shadow-xs group-hover:border-slate-400 transition-colors cursor-pointer"
           />
           <div>
             <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none flex items-center">
@@ -335,7 +343,7 @@ export default function DashboardPrincipal() {
               35 Temas · Bomberos CAM
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Acciones de usuario: Admin (SOLO SI ES ADMIN), instalar y racha */}
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -764,6 +772,12 @@ export default function DashboardPrincipal() {
         onCerrar={() => setModalRachaAbierto(false)}
         rachaDias={stats.rachaDias}
         sesiones={sesiones}
+      />
+
+      {/* Modal Informativo: Filosofía de la App */}
+      <InfoModal
+        abierto={modalInfoAbierto}
+        onCerrar={() => setModalInfoAbierto(false)}
       />
 
       {/* Pantalla Completa de Configuración de Test */}

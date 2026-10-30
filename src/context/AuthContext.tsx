@@ -1,10 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { PerfilUsuario } from '@/lib/types';
 import { ShieldAlert, Zap, LogOut } from 'lucide-react';
+import AuthScreen from '@/components/AuthScreen';
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +43,9 @@ const AuthContext = createContext<AuthContextType>({
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const esRutaPublica = pathname === '/auth/callback' || pathname === '/restablecer-password';
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
@@ -286,8 +291,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         </aside>
       )}
 
-      {/* 2. PANTALLA DE ACCESO BLOQUEADO (SI EL ADMIN LO HA BLOQUEADO) */}
-      {bloqueado ? (
+      {/* 2. RUTAS PÚBLICAS (COMO EL CALLBACK DE OAUTH) */}
+      {esRutaPublica ? (
+        children
+      ) : loading ? (
+        /* 3. PANTALLA DE CARGA INICIAL DE SESIÓN */
+        <div className="min-h-[100dvh] bg-slate-50 flex flex-col items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-3 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="OpostudyC"
+              className="w-14 h-14 rounded-2xl object-contain bg-[#182029] p-1 border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] animate-pulse"
+            />
+            <div className="w-6 h-6 border-2 border-slate-900 border-t-red-600 rounded-full animate-spin mt-1" />
+          </div>
+        </div>
+      ) : !user ? (
+        /* 4. MURO DE ACCESO OBLIGATORIO (AUTH GATE) */
+        <AuthScreen />
+      ) : bloqueado ? (
+        /* 5. PANTALLA DE ACCESO BLOQUEADO (SI EL ADMIN LO HA BLOQUEADO) */
         <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-6 text-center">
           <div className="max-w-md w-full bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_#0f172a] rounded-2xl p-6 sm:p-8 space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-rose-100 border-2 border-rose-600 text-rose-600 flex items-center justify-center mx-auto shadow-xs">
@@ -310,6 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       ) : (
+        /* 6. APLICACIÓN COMPLETA PARA USUARIOS AUTENTICADOS */
         <div className={impersonatedUser && esAdmin ? 'pt-10' : ''}>
           {children}
         </div>
